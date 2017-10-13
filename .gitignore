@@ -3,6 +3,5 @@ mat/
 plot/
 *.pyc
 *.gz
-# 2 lbl
 *.train
 *.test
