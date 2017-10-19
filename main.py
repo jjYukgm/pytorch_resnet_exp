@@ -54,6 +54,7 @@ parser.add_argument('--zipf', '-z', action='store_true', help='zip the test')
 parser.add_argument('--debug', '-d', action='store_true', help='debug mode')
 parser.add_argument('--p2l', action='store_true', help='pred mat to lbl')
 parser.add_argument('--r2', action='store_true', help='resume to 2 lbl')
+parser.add_argument('--r3', action='store_true', help='resume to easy')
 parser.add_argument('--ft', action='store_true', help='finetune only last')
 parser.add_argument('--rm', action='store_true', help='remove net')
 args = parser.parse_args()
@@ -92,6 +93,8 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 # save dir
 net_dir = args.net
+if args.r3:
+    net_dir += '_r3'
 if args.r2:
     net_dir += '_r2'
 if args.ft:
@@ -103,7 +106,19 @@ if not os.path.isdir('checkpoint/'+net_dir):
     os.makedirs('checkpoint/'+net_dir)
 
 # Model
-if args.r2:
+if args.r3:
+    print('==> Resuming from checkpoint to easy new..')
+    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load('./checkpoint/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+    net = checkpoint['net']
+    
+    if args.ft:
+        for param in net.parameters():
+            param.requires_grad = False
+        for param in net.linear.parameters():
+            param.requires_grad = True
+
+elif args.r2:
     # Load checkpoint.
     print('==> Resuming from checkpoint to 2 lbl..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
@@ -123,7 +138,7 @@ if args.r2:
         for param in net.linear.parameters():
             param.requires_grad = True
     
-if args.resume or args.test:
+elif args.resume or args.test:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
