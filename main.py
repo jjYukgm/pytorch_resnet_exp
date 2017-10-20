@@ -311,11 +311,13 @@ def easydata(train=False, sca_ts=None):
     dist_sm = np.exp(dist) / np.array([np.sum(np.exp(dist), axis=1),] *dist.shape[1]).transpose()
     entropy = (-dist_sm*np.log2(dist_sm)).sum(axis=1)   # get cross-entropy to be cut-ts
     
+    
     if sca_ts is None:  # gen cut easy ts
         ratio_sort = np.sort(entropy) # small to large = easy to hard
         easy_num = int(dist.shape[0] *0.3)  # take 30% as easy data
         sca_ts = ratio_sort[int(easy_num)]  # choose ts
-    easy_ind = np.where(entropy <= sca_ts)
+        
+    easy_ind = np.where(entropy < sca_ts)
     easy_ind = np.asarray(easy_ind)
     easy_ind = np.squeeze(easy_ind)
     
@@ -328,19 +330,22 @@ def easydata(train=False, sca_ts=None):
     else:
         dataset.test_data = dataset.test_data[easy_ind]
         dataset.test_labels = np.asarray(dataset.test_labels)[easy_ind].tolist()
-        pr = dataset.test_labels
+        pr = np.asarray(dataset.test_labels)
         
-    
+    easy_num = easy_ind.shape[0]
     ## get ind close ts
     ratio_sort_ind = np.argsort(entropy)
-    easy_close_ind = ratio_sort_ind[easy_num -11:easy_num -1]   # close last to be hard
+    ratio_sort_ind = np.asarray(ratio_sort_ind)
+    ratio_sort_ind = np.squeeze(ratio_sort_ind)
+    easy_close_ind = ratio_sort_ind[easy_num -10:easy_num]   # close last to be hard
     hard_close_ind = ratio_sort_ind[easy_num +1:easy_num +11]   # close first to be easy
     
     ## weight cls
     weights = np.zeros( max(pr)+1)
     for i in range(min(pr), max(pr)+1):
         weights[i] = sum(pr==i) # get num per cls
-        if i ==1:               # get lcm to cal wei
+        if i ==0: pass
+        elif i ==1:               # get lcm to cal wei
             w_lcm = lcm(weights[0], weights[1])
         else:
             w_lcm = lcm(w_lcm, weights[i])
@@ -413,12 +418,7 @@ def data_save(train=False):
                 "predict_right: predict right/wrong[1,0] \n "
                 "accuracy: total accuracy[0,100] \n "
                 "runtime: runtime on n data in seconds \n "
-                "epoch: training epoch[best accu] \n"
-                "treid: train easy data close id \n "
-                "trhid: train easy data close id \n "
-                "teeid: test easy data close id \n "
-                "tehid: test easy data close id \n "
-                "ent_ts: the ts splitting data, generating from cross-entropy \n ")
+                "epoch: training epoch[best accu] \n")
     state = {
         'epoch': start_epoch,
         'pred_confidence': dist, 
@@ -431,6 +431,11 @@ def data_save(train=False):
         'help_str':help_str,
     }
     if hasattr(trainset, 'easy_close_ind'):
+        help_str +=("treid: train easy data id which is close to ts \n "
+                    "trhid: train easy data id which is close to ts \n "
+                    "teeid: test easy data id which is close to ts \n "
+                    "tehid: test easy data id which is close to ts \n "
+                    "ent_ts: the ts splitting data, generating from cross-entropy \n ")
         default_data.update({'treid': trainset.easy_close_ind,
                             'trhid': trainset.hard_close_ind, 
                             'teeid': testset.easy_close_ind, 
@@ -464,7 +469,7 @@ def remove_file():
 
 if args.debug:
     pdb.set_trace()
-    get_zip()
+    # get_zip()
     # test(10)
     # pred2lbl()
     # pred2lbl(train=True)
