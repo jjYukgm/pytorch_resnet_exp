@@ -5,3 +5,4 @@ plot/
 *.gz
 *.train
 *.test
+*.swp

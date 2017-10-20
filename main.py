@@ -24,15 +24,18 @@ import zipfile
 import numpy as np
 import time
 import shutil
+# for easydata
+from utils import gcd, lcm
+# from scipy.special import entr
 '''
 python main.py -n r_37
 python main.py -n r_37 -t --p2l &&\
-python main.py -n r_37_2 --dn r_37 --lr 0.01 &&\
-python main.py -n r_37_2_lr1e-1 -t --dn r_37 -c e200 && \
-python main.py -n r_37_2_lr1e-1 -t --dn r_37 && \
-python main.py -n r_37_2_lr1e-2 -t --dn r_37 -c e200 && \
-python main.py -n r_37_2_lr1e-2 -t --dn r_37
-python main.py -n r_37_2 --r2 --dn r_37 -c e200
+python main.py -n r_37_2 --dn r_37_2b --lr 0.01 &&\
+python main.py -n r_37_2_lr1e-1 -t --dn r_37_2b -c e200 && \
+python main.py -n r_37_2_lr1e-1 -t --dn r_37_2b && \
+python main.py -n r_37_2_lr1e-2 -t --dn r_37_2b -c e200 && \
+python main.py -n r_37_2_lr1e-2 -t --dn r_37_2b
+python main.py -n r_37_2 --r2 --dn r_37_2b -c e200
 
 matlab:
 matlab -nosplash -nodesktop
@@ -53,6 +56,7 @@ parser.add_argument('--test', '-t', action='store_true', help='test checkpoint')
 parser.add_argument('--zipf', '-z', action='store_true', help='zip the test')
 parser.add_argument('--debug', '-d', action='store_true', help='debug mode')
 parser.add_argument('--p2l', action='store_true', help='pred mat to lbl')
+parser.add_argument('--ed', action='store_true', help='pred mat to easy data')
 parser.add_argument('--r2', action='store_true', help='resume to 2 lbl')
 parser.add_argument('--r3', action='store_true', help='resume to easy')
 parser.add_argument('--ft', action='store_true', help='finetune only last')
@@ -81,8 +85,8 @@ if args.dn =="":
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
 else:
-    trainset = torch.load('./data/'+args.dn+'_2b.train')
-    testset = torch.load('./data/'+args.dn+'_2b.test')
+    trainset = torch.load('./data/'+args.dn+'.train')
+    testset = torch.load('./data/'+args.dn+'.test')
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
 
 testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
@@ -163,6 +167,8 @@ else:
         net = r_37_2()
     elif args.net =="r_73":
         net = r_73()
+    elif args.net =="r_91":
+        net = r_91()
     elif args.net =="r_110":
         net = r_110()
     else:
@@ -289,6 +295,67 @@ def pred2lbl(train=False):
     # save net datasets
     torch.save(dataset, './data/'+args.net+'_2b.'+fn)
     
+def easydata(train=False, sca_ts=None):
+    if train:
+        fn = "train"
+        dataset = trainset
+    else:
+        fn = "test"
+        dataset = testset
+    ## load pred
+    matpath = os.path.join('mat', net_dir+'_'+args.ckptn, fn+'.mat')
+    mat = sio.loadmat(matpath)
+    
+    ## get score to cut
+    dist = mat['pred_confidence']   # get predict
+    dist_sm = np.exp(dist) / np.array([np.sum(np.exp(dist), axis=1),] *dist.shape[1]).transpose()
+    entropy = (-dist_sm*np.log2(dist_sm)).sum(axis=1)   # get cross-entropy to be cut-ts
+    
+    if sca_ts is None:  # gen cut easy ts
+        ratio_sort = np.sort(entropy) # small to large = easy to hard
+        easy_num = int(dist.shape[0] *0.3)  # take 30% as easy data
+        sca_ts = ratio_sort[int(easy_num)]  # choose ts
+    easy_ind = np.where(entropy <= sca_ts)
+    easy_ind = np.asarray(easy_ind)
+    easy_ind = np.squeeze(easy_ind)
+    
+    ## split data
+    pr = None
+    if hasattr(dataset, 'train_data'):
+        dataset.train_data = dataset.train_data[easy_ind]
+        dataset.train_labels = np.asarray(dataset.train_labels)[easy_ind].tolist()
+        pr = np.asarray(dataset.train_labels)
+    else:
+        dataset.test_data = dataset.test_data[easy_ind]
+        dataset.test_labels = np.asarray(dataset.test_labels)[easy_ind].tolist()
+        pr = dataset.test_labels
+        
+    
+    ## get ind close ts
+    ratio_sort_ind = np.argsort(entropy)
+    easy_close_ind = ratio_sort_ind[easy_num -11:easy_num -1]   # close last to be hard
+    hard_close_ind = ratio_sort_ind[easy_num +1:easy_num +11]   # close first to be easy
+    
+    ## weight cls
+    weights = np.zeros( max(pr)+1)
+    for i in range(min(pr), max(pr)+1):
+        weights[i] = sum(pr==i) # get num per cls
+        if i ==1:               # get lcm to cal wei
+            w_lcm = lcm(weights[0], weights[1])
+        else:
+            w_lcm = lcm(w_lcm, weights[i])
+    
+    weights = w_lcm / weights
+    weights = weights * len(weights)/ sum(weights)  # 0918: nor sigma = num of cls
+    
+    dataset.weights = weights
+    dataset.easy_close_ind = easy_close_ind
+    dataset.hard_close_ind = hard_close_ind
+    dataset.sca_ts = sca_ts
+    # save net datasets
+    torch.save(dataset, './data/'+args.net+'_ed.'+fn)
+    return sca_ts
+
 def data_save(train=False):
     net.eval()
     test_loss = 0
@@ -339,7 +406,19 @@ def data_save(train=False):
     pright[prbool==False] = 0.
     print('Saving data..')
     dists = np.sort(dist, axis=-1)
-    help_str = "pred_confidence: distribution of predicted confidence, array[n, d] \n n: num of data, d: num of class \n *_sort: sorted by d(small to large) \n class_predict: predict class[0:9] \n predict_right: predict right/wrong[1,0] \n accuracy: total accuracy[0,100] \n runtime: runtime on n data in seconds \n epoch: training epoch[best accu] "
+    help_str = ("pred_confidence: distribution of predicted confidence, array[n, d] \n "
+                "n: num of data, d: num of class \n "
+                "*_sort: sorted by d(small to large) \n "
+                "class_predict: predict class[0:9] \n "
+                "predict_right: predict right/wrong[1,0] \n "
+                "accuracy: total accuracy[0,100] \n "
+                "runtime: runtime on n data in seconds \n "
+                "epoch: training epoch[best accu] \n"
+                "treid: train easy data close id \n "
+                "trhid: train easy data close id \n "
+                "teeid: test easy data close id \n "
+                "tehid: test easy data close id \n "
+                "ent_ts: the ts splitting data, generating from cross-entropy \n ")
     state = {
         'epoch': start_epoch,
         'pred_confidence': dist, 
@@ -351,6 +430,12 @@ def data_save(train=False):
         'runtime': runtime,
         'help_str':help_str,
     }
+    if hasattr(trainset, 'easy_close_ind'):
+        default_data.update({'treid': trainset.easy_close_ind,
+                            'trhid': trainset.hard_close_ind, 
+                            'teeid': testset.easy_close_ind, 
+                            'tehid': testset.hard_close_ind, 
+                            'ent_ts': trainset.sca_ts})
     sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
@@ -400,3 +485,6 @@ else:
 if args.p2l:
     pred2lbl()
     pred2lbl(train=True)
+if args.ed:
+    sca_ts = easydata(train=True)
+    easydata(train=False, sca_ts=sca_ts)

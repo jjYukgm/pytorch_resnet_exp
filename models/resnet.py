@@ -231,6 +231,8 @@ def r_37_2():
     return ResNet2(BasicBlock, [18,18,18,18], num_layers=1, num_classes=2)
 def r_73():
     return ResNet2(BasicBlock, [18,18,18,18], num_layers=2)
+def r_91():
+    return ResNet2(BasicBlock, [18,18,9,0], num_layers=3)
 def r_110():
     return ResNet2(BasicBlock, [18,18,18,18], num_layers=3)
 
