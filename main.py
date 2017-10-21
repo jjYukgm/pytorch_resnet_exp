@@ -59,6 +59,7 @@ parser.add_argument('--p2l', action='store_true', help='pred mat to lbl')
 parser.add_argument('--ed', action='store_true', help='pred mat to easy data')
 parser.add_argument('--r2', action='store_true', help='resume to 2 lbl')
 parser.add_argument('--r3', action='store_true', help='resume to easy')
+parser.add_argument('--uc', action='store_true', help='uncertainty training')
 parser.add_argument('--ft', action='store_true', help='finetune only last')
 parser.add_argument('--rm', action='store_true', help='remove net')
 args = parser.parse_args()
@@ -108,6 +109,7 @@ if not args.lr == 0.1:
     
 if not os.path.isdir('checkpoint/'+net_dir):
     os.makedirs('checkpoint/'+net_dir)
+
 
 # Model
 if args.r3:
@@ -171,9 +173,19 @@ else:
         net = r_91()
     elif args.net =="r_110":
         net = r_110()
+    elif args.net =="r_37d":
+        net = r_37d()
+    elif args.net =="r_110d":
+        net = r_110d()
     else:
         print('There is no ' + args.net)
         exit()
+  
+
+
+# check net is uc-net
+if args.uc:
+    args.uc = hasattr(net, 'sig')
     
 if use_cuda:
     net.cuda()
@@ -208,7 +220,11 @@ def train(epoch):
             inputs, targets = inputs.cuda(), targets.cuda()
         optimizer.zero_grad()
         inputs, targets = Variable(inputs), Variable(targets)
-        outputs = net(inputs)
+        if args.uc:
+            outputs, sig = net(inputs)
+            outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+        else:
+            outputs = net(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -231,7 +247,11 @@ def test(epoch):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        outputs = net(inputs)
+        if args.uc:
+            outputs, sig = net(inputs)
+            outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+        else:
+            outputs = net(inputs)
         loss = criterion(outputs, targets)
         # pdb.set_trace()
 
@@ -373,15 +393,20 @@ def data_save(train=False):
     else:
         loader = testloader
         fn = "test"
+    sigs = None
     for batch_idx, (inputs, targets) in enumerate(loader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         last_time = time.time()
         begin_time = last_time
-        outputs = net(inputs)
+        if args.uc:
+            outputs, sig = net(inputs)
+        else:
+            outputs = net(inputs)
         loss = criterion(outputs, targets)
-
+        
+        
         _, predicted = torch.max(outputs.data, 1)
         last_time = time.time()
         test_loss += loss.data[0]
@@ -392,16 +417,19 @@ def data_save(train=False):
         progress_bar(batch_idx, len(loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
         # save data:
-        out = outputs.data.cpu().numpy()   # [ 100, 10] no SM
-        pred = predicted.cpu().numpy()  # [ 100, ] predict 
-        gt = targets.data.cpu().numpy() # [ 100, ] gt
+        out = outputs.data.cpu().numpy()    # [ 100, 10] no SM
+        if args.uc: sig_ = sig.data.cpu().numpy()       # [ 100, 10] no SM
+        pred = predicted.cpu().numpy()      # [ 100, ] predict 
+        gt = targets.data.cpu().numpy()     # [ 100, ] gt
         runtime += last_time - begin_time   # time(b=100)(sec)
         if batch_idx==0:
             dist = out
+            if args.uc: sigs = sig_
             preds = pred
             gts = gt
         else:
             dist = np.concatenate((dist, out), axis=0)
+            if args.uc: sigs = np.concatenate((sigs, sig_), axis=0)
             preds = np.concatenate((preds, pred), axis=0)
             gts = np.concatenate((gts, gt), axis=0)
     # Save checkpoint.
@@ -418,7 +446,7 @@ def data_save(train=False):
                 "predict_right: predict right/wrong[1,0] \n "
                 "accuracy: total accuracy[0,100] \n "
                 "runtime: runtime on n data in seconds \n "
-                "epoch: training epoch[best accu] \n")
+                "epoch: training epoch[best accu] \n ")
     state = {
         'epoch': start_epoch,
         'pred_confidence': dist, 
@@ -432,15 +460,21 @@ def data_save(train=False):
     }
     if hasattr(trainset, 'easy_close_ind'):
         help_str +=("treid: train easy data id which is close to ts \n "
-                    "trhid: train easy data id which is close to ts \n "
+                    "trhid: train hard data id which is close to ts \n "
                     "teeid: test easy data id which is close to ts \n "
-                    "tehid: test easy data id which is close to ts \n "
+                    "tehid: test hard data id which is close to ts \n "
                     "ent_ts: the ts splitting data, generating from cross-entropy \n ")
         state.update({'treid': trainset.easy_close_ind,
                       'trhid': trainset.hard_close_ind, 
                       'teeid': testset.easy_close_ind, 
                       'tehid': testset.hard_close_ind, 
-                      'ent_ts': trainset.sca_ts})
+                      'ent_ts': trainset.sca_ts,
+                      'help_str':help_str,})
+    if sigs is not None:
+        help_str += "sigma: predict data variance para \n "
+        state.update({'sigma': sigs,
+                      'help_str':help_str,})
+        
     if args.dn == "":
         sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
     else:
