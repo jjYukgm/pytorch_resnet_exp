@@ -51,6 +51,7 @@ parser.add_argument('--dn', default="", type=str, help='data name')
 parser.add_argument('--pn', default="", type=str, help='pretrain name')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epoch', '-e', default=200, type=int, help='next training epoch')
+parser.add_argument('--sna', '-a', default=50, type=int, help='sample num for Aleatoric Uncertainty')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--test', '-t', action='store_true', help='test checkpoint')
 parser.add_argument('--zipf', '-z', action='store_true', help='zip the test')
@@ -222,10 +223,17 @@ def train(epoch):
         inputs, targets = Variable(inputs), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
-            outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+            for a in xrange(args.sna):  # samples mean
+                outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+                if a==0:
+                    loss = criterion(outputs, targets)
+                else:
+                    loss += criterion(outputs, targets)
+            loss /= args.sna
         else:
             outputs = net(inputs)
-        loss = criterion(outputs, targets)
+            loss = criterion(outputs, targets)
+        
         loss.backward()
         optimizer.step()
 
@@ -249,10 +257,18 @@ def test(epoch):
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
-            outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+            for a in xrange(args.sna):  # samples mean
+                outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+                if a==0:
+                    loss = criterion(outputs, targets)
+                else:
+                    loss += criterion(outputs, targets)
+            
+            loss /= args.sna
         else:
             outputs = net(inputs)
-        loss = criterion(outputs, targets)
+            loss = criterion(outputs, targets)
+        
         # pdb.set_trace()
 
         test_loss += loss.data[0]
