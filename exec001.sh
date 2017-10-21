@@ -1,7 +1,7 @@
 #!/bin/bash
 
-python main.py -n r_110 -c e200 -d --ed && \
-python main.py -n r_37 --dn r_110_ed --r3 --pn r_37 -c n_e200 &&\
+# python main.py -n r_110 -c e200 -d --ed && \
+# python main.py -n r_37 --dn r_110_ed --r3 --pn r_37 -c n_e200 &&\
 python main.py -n r_37_r3 --dn r_110_ed -t -c e200 &&\
 python main.py -n r_73 --dn r_110_ed --r3 --pn r_73 -c n_e200 &&\
 python main.py -n r_73_r3 --dn r_110_ed -t -c e200 &&\

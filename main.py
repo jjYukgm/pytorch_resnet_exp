@@ -436,20 +436,27 @@ def data_save(train=False):
                     "teeid: test easy data id which is close to ts \n "
                     "tehid: test easy data id which is close to ts \n "
                     "ent_ts: the ts splitting data, generating from cross-entropy \n ")
-        default_data.update({'treid': trainset.easy_close_ind,
-                            'trhid': trainset.hard_close_ind, 
-                            'teeid': testset.easy_close_ind, 
-                            'tehid': testset.hard_close_ind, 
-                            'ent_ts': trainset.sca_ts})
-    sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
+        state.update({'treid': trainset.easy_close_ind,
+                      'trhid': trainset.hard_close_ind, 
+                      'teeid': testset.easy_close_ind, 
+                      'tehid': testset.hard_close_ind, 
+                      'ent_ts': trainset.sca_ts})
+    if args.dn == "":
+        sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
+    else:
+        sdir = os.path.join('mat', net_dir+'_'+args.ckptn+'_'+args.dn)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
     sio.savemat(sdir+'/'+fn+'.mat', state, do_compression=True)
 
 def get_zip():
-    zf = zipfile.ZipFile('./mat/'+net_dir +'_'+args.ckptn+ '.zip', mode='w', compression = zipfile.ZIP_DEFLATED)
+    if args.dn=="":
+        fn = net_dir +'_'+args.ckptn
+    else:
+        fn = net_dir +'_'+args.ckptn+'_'+args.dn
+    zf = zipfile.ZipFile('./mat/'+fn + '.zip', mode='w', compression = zipfile.ZIP_DEFLATED)
     for root, folders, files in os.walk("./mat"):
-        if root.find(net_dir+'_'+args.ckptn) > -1:
+        if root.find(fn) > -1:
             print("root: " + root)
             for sfile in files:
                 if sfile.find('.mat') > -1:
