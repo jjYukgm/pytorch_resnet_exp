@@ -224,11 +224,11 @@ def train(epoch):
         if args.uc:
             outputs, sig = net(inputs)
             for a in xrange(args.sna):  # samples mean
-                outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
                 if a==0:
-                    loss = criterion(outputs, targets)
+                    loss = criterion(outputs2, targets)
                 else:
-                    loss += criterion(outputs, targets)
+                    loss += criterion(outputs2, targets)
             loss /= args.sna
         else:
             outputs = net(inputs)
@@ -258,11 +258,11 @@ def test(epoch):
         if args.uc:
             outputs, sig = net(inputs)
             for a in xrange(args.sna):  # samples mean
-                outputs = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
                 if a==0:
-                    loss = criterion(outputs, targets)
+                    loss = criterion(outputs2, targets)
                 else:
-                    loss += criterion(outputs, targets)
+                    loss += criterion(outputs2, targets)
             
             loss /= args.sna
         else:
