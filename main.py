@@ -183,6 +183,8 @@ else:
         net = r_37d()
     elif args.net =="r_37d2":
         net = r_37d2()
+    elif args.net =="r_37d3":
+        net = r_37d3()
     elif args.net =="r_110d":
         net = r_110d()
     else:

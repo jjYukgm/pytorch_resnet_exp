@@ -283,6 +283,9 @@ class ResNet3(nn.Module):
         super(ResNet3, self).__init__()
         self.in_planes = 64
         self.num_layers = num_layers
+        self.c1d = c1d
+        self.c2d = c2d
+        
         # in: 32 X 32 X 3
         self.conv1 = conv3x3(3,64)  # 32 X 32 X 64
         self.conv1_drop = nn.Dropout2d()
@@ -312,8 +315,11 @@ class ResNet3(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1_drop(self.conv1(x))))
-        out = F.dropout(out, training=self.training)
+        if self.c1d:
+            out = F.relu(self.bn1(self.conv1_drop(self.conv1(x))))
+            out = F.dropout(out, training=self.training)
+        else:
+            out = F.relu(self.bn1(self.conv1(x)))
         if self.num_layers >0:
             out = self.layer1(out)
         if self.num_layers >1:
@@ -324,7 +330,9 @@ class ResNet3(nn.Module):
             out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
-        out = F.dropout(out, training=self.training)
+        
+        if self.c2d:
+            out = F.dropout(out, training=self.training)
         out1 = self.linear(out)
         sig = self.sigfc(out)
         return out1, sig
@@ -333,6 +341,8 @@ def r_37d():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=True, c2d=True)
 def r_37d2():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=False, c2d=True)
+def r_37d3():
+    return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=False, c2d=False)
 def r_110d():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=3, c1d=True, c2d=True)
 
@@ -343,6 +353,5 @@ def test():
         print(y[0].size())
     else:
         print(y.size())
-    print(net.sig.size())
 
 # test()
