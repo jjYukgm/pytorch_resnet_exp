@@ -176,6 +176,8 @@ else:
         net = r_110()
     elif args.net =="r_37d":
         net = r_37d()
+    elif args.net =="r_37d2":
+        net = r_37d2()
     elif args.net =="r_110d":
         net = r_110d()
     else:
@@ -223,12 +225,10 @@ def train(epoch):
         inputs, targets = Variable(inputs), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
+            loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
             for a in xrange(args.sna):  # samples mean
                 outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
-                if a==0:
-                    loss = criterion(outputs2, targets)
-                else:
-                    loss += criterion(outputs2, targets)
+                loss += criterion(outputs2, targets)
             loss /= args.sna
         else:
             outputs = net(inputs)
@@ -257,12 +257,11 @@ def test(epoch):
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
+            
+            loss = 0.
             for a in xrange(args.sna):  # samples mean
                 outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
-                if a==0:
-                    loss = criterion(outputs2, targets)
-                else:
-                    loss += criterion(outputs2, targets)
+                loss += criterion(outputs2, targets)
             
             loss /= args.sna
         else:
