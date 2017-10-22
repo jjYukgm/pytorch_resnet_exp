@@ -43,6 +43,11 @@ matlab -nosplash -nodesktop
     load('mat/r_37_n_e200/test.mat')
     who $ to watch variable
 '''
+'''
+# check code args:
+from inspect import getargspec as ga
+print(ga(net.forward))
+'''
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('-n', '--net', default="net", type=str, help='net name')
@@ -257,8 +262,7 @@ def test(epoch):
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
-            
-            loss = 0.
+            loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
             for a in xrange(args.sna):  # samples mean
                 outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
                 loss += criterion(outputs2, targets)
