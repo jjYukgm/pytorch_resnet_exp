@@ -335,7 +335,8 @@ class ResNet3(nn.Module):
         out1 = self.linear(out)
         sig = self.sigfc(out)
         return out1, sig
-    setdrop(self, c1d, c2d):
+        
+    def setdrop(self, c1d, c2d):
         self.c1d = c1d
         self.c2d = c2d
         for module in self.children():
