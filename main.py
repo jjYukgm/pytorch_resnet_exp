@@ -66,6 +66,9 @@ parser.add_argument('--ed', action='store_true', help='pred mat to easy data')
 parser.add_argument('--r2', action='store_true', help='resume to 2 lbl')
 parser.add_argument('--r3', action='store_true', help='resume to easy')
 parser.add_argument('--uc', action='store_true', help='uncertainty training')
+parser.add_argument('--ccs', action='store_true', help='change cd setting')
+parser.add_argument('--uc1d', action='store_true', help='c1d')
+parser.add_argument('--uc2d', action='store_true', help='c2d')
 parser.add_argument('--ft', action='store_true', help='finetune only last')
 parser.add_argument('--rm', action='store_true', help='remove net')
 args = parser.parse_args()
@@ -154,10 +157,16 @@ elif args.resume or args.test:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
+    if args.pn=="":
+        checkpoint = torch.load('./checkpoint/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
+    else:
+        checkpoint = torch.load('./checkpoint/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
+    
+    if hasattr(net, "setdrop") and args.ccs:
+        net.setdrop(args.uc1d, args.uc2d)
 else:
     print('==> Building model..')
     # net = VGG('VGG19')
