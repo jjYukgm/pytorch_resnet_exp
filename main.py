@@ -27,6 +27,8 @@ import shutil
 # for easydata
 from utils import gcd, lcm
 # from scipy.special import entr
+# for run-time replace func in class
+import types
 '''
 python main.py -n r_37
 python main.py -n r_37 -t --p2l &&\
@@ -47,6 +49,10 @@ matlab -nosplash -nodesktop
 # check code args:
 from inspect import getargspec as ga
 print(ga(net.forward))
+# check source code:
+import inspect
+lines = inspect.getsourcelines(net.forward)
+print("".join(lines[0]))
 '''
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -114,6 +120,8 @@ if args.r2:
     net_dir += '_r2'
 if args.ft:
     net_dir += '_ft'
+if not args.pn =="":
+    net_dir += '_p' + args.pn
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
     
@@ -154,7 +162,7 @@ elif args.r2:
         for param in net.linear.parameters():
             param.requires_grad = True
     
-elif args.resume or args.test:
+elif args.resume or args.test or args.pn!="":
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
@@ -167,8 +175,16 @@ elif args.resume or args.test:
     if not args.ez:
         start_epoch = checkpoint['epoch']
     
-    if hasattr(net, "setdrop") and args.ccs:
+    if not hasattr(net, "setdrop"): # run-time replace func in class
+        print("add net.setdrop")
+        def setdrop(self, c1d, c2d):
+            self.c1d = c1d
+            self.c2d = c2d
+        net.setdrop = types.MethodType(setdrop, net)
+    if args.ccs:
+        print("set net.setdrop")
         net.setdrop(args.uc1d, args.uc2d)
+        
 else:
     print('==> Building model..')
     # net = VGG('VGG19')
