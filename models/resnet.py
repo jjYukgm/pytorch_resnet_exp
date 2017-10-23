@@ -330,12 +330,19 @@ class ResNet3(nn.Module):
             out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
-        
-        if self.c2d:
-            out = F.dropout(out, training=self.training)
+        # if self.c2d:
+        #     out = F.dropout(out, training=self.training)
         out1 = self.linear(out)
         sig = self.sigfc(out)
         return out1, sig
+    setdrop(self, c1d, c2d):
+        self.c1d = c1d
+        self.c2d = c2d
+        for module in self.children():
+            if isinstance(module, BasicBlockD):
+                module.c1d = c1d
+                module.c2d = c2d
+        
 
 def r_37d():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=True, c2d=True)
