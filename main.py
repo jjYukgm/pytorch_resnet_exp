@@ -482,8 +482,10 @@ def data_save(train=False):
             gts = np.concatenate((gts, gt), axis=0)
     # Save checkpoint.
     acc = 100.*correct/total
+    preds = preds.squeeze()
     prbool = np.equal(preds, gts)
     pright = np.ones(preds.shape, dtype=np.int8)
+    # pdb.set_trace()
     pright[prbool==False] = 0.
     print('Saving data..')
     dists = np.sort(dist, axis=-1)
