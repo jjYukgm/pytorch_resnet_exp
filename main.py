@@ -261,7 +261,7 @@ def train(epoch):
             outputs, sig = net(inputs)
             loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
             for a in xrange(args.sna):  # samples mean
-                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.size()).cuda())
                 loss += criterion(outputs2, targets)
             loss /= args.sna
         else:
@@ -293,7 +293,7 @@ def test(epoch):
             outputs, sig = net(inputs)
             loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
             for a in xrange(args.sna):  # samples mean
-                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.size()).cuda())
                 loss += criterion(outputs2, targets)
             
             loss /= args.sna
