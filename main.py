@@ -125,6 +125,7 @@ if not args.pn =="":
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
     
+print("net: "+ net_dir)
 if not os.path.isdir('checkpoint/'+net_dir):
     os.makedirs('checkpoint/'+net_dir)
 
