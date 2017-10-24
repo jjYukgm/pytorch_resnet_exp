@@ -26,7 +26,8 @@ import time
 import shutil
 # for easydata
 from utils import gcd, lcm
-# from scipy.special import entr
+# for loss
+from utils import uncertainty_var_loss
 # for run-time replace func in class
 import types
 '''
@@ -292,12 +293,7 @@ def test(epoch):
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
-            loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
-            for a in xrange(args.sna):  # samples mean
-                outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
-                loss += criterion(outputs2, targets)
-            
-            loss /= args.sna
+            loss = uncertainty_var_loss(criterion, outputs, sig, targets, sna=args.sna)
         else:
             outputs = net(inputs)
             loss = criterion(outputs, targets)

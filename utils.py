@@ -11,6 +11,9 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.init as init
+# for loss func
+import numpy as np
+from torch.autograd import Variable
 
 
 def gcd(a,b):
@@ -22,6 +25,24 @@ def gcd(a,b):
 def lcm(a, b):
     """Compute the lowest common multiple of a and b"""
     return a * b / gcd(a, b)
+
+def uncertainty_var_loss(criterion, outputs, sig, targets, sna=50):
+    loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
+    for a in xrange(sna):  # samples mean
+        outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+        loss += criterion(outputs2, targets)
+    
+    loss /= sna
+    return loss
+
+def uncertainty_loss(criterion, outputs, sig, targets, sna=50):
+    loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
+    for a in xrange(sna):  # samples mean
+        outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
+        loss += criterion(outputs2, targets)
+    
+    loss /= sna
+    return loss
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
