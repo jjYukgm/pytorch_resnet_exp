@@ -6,4 +6,4 @@ plot/
 *.train
 *.test
 *.swp
-cifar10*/
+data/cifar10*/*
