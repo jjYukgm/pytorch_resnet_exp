@@ -70,6 +70,7 @@ parser.add_argument('--zipf', '-z', action='store_true', help='zip the test')
 parser.add_argument('--debug', '-d', action='store_true', help='debug mode')
 parser.add_argument('--p2l', action='store_true', help='pred mat to lbl')
 parser.add_argument('--ed', action='store_true', help='pred mat to easy data')
+parser.add_argument('--eval', action='store_true', help='easy train data split val')
 parser.add_argument('--r2', action='store_true', help='resume to 2 lbl')
 parser.add_argument('--r3', action='store_true', help='resume to easy')
 parser.add_argument('--uc', action='store_true', help='uncertainty training')
@@ -356,13 +357,17 @@ def pred2lbl(train=False):
     # save net datasets
     torch.save(dataset, './data/'+args.net+'_2b.'+fn)
     
-def easydata(train=False, sca_ts=None):
+def easydata(train=False, sca_ts=None, val=False):
     if train:
         fn = "train"
         dataset = trainset
     else:
         fn = "test"
         dataset = testset
+    if val:
+        savefn = './data/'+args.net+'_edv.'+fn
+    else:
+        savefn = './data/'+args.net+'_ed.'+fn
     ## load pred
     matpath = os.path.join('mat', net_dir+'_'+args.ckptn, fn+'.mat')
     mat = sio.loadmat(matpath)
@@ -382,6 +387,20 @@ def easydata(train=False, sca_ts=None):
     easy_ind = np.asarray(easy_ind)
     easy_ind = np.squeeze(easy_ind)
     
+    ## get val data
+    val_ind = None
+    easy_num = easy_ind.shape[0]
+    if train and val:
+        val_ind = np.arange(easy_num)
+        np.random.shuffle(val_ind)
+        val_ind = val_ind[:int((easy_num+0.) / 5)]  # 1/5 of easy
+        val_ind = np.sort(val_ind)
+        dataset.val_data = dataset.train_data[easy_ind[val_ind]]
+        dataset.val_labels = np.asarray(dataset.train_labels)[easy_ind[val_ind]].tolist()
+        dataset.val_ind = val_ind
+        easy_ind = np.delete(easy_ind, val_ind)
+        easy_num = easy_ind.shape[0]
+    
     ## split data
     pr = None
     if hasattr(dataset, 'train_data'):
@@ -393,7 +412,6 @@ def easydata(train=False, sca_ts=None):
         dataset.test_labels = np.asarray(dataset.test_labels)[easy_ind].tolist()
         pr = np.asarray(dataset.test_labels)
         
-    easy_num = easy_ind.shape[0]
     ## get ind close ts
     ratio_sort_ind = np.argsort(entropy)
     ratio_sort_ind = np.asarray(ratio_sort_ind)
@@ -418,8 +436,9 @@ def easydata(train=False, sca_ts=None):
     dataset.easy_close_ind = easy_close_ind
     dataset.hard_close_ind = hard_close_ind
     dataset.sca_ts = sca_ts
+    dataset.easy_ind = easy_ind
     # save net datasets
-    torch.save(dataset, './data/'+args.net+'_ed.'+fn)
+    torch.save(dataset, savefn)
     return sca_ts
 
 def data_save(train=False):
@@ -531,7 +550,7 @@ def get_zip():
         fn = net_dir +'_'+args.ckptn+'_'+args.dn
     zf = zipfile.ZipFile('./mat/'+fn + '.zip', mode='w', compression = zipfile.ZIP_DEFLATED)
     for root, folders, files in os.walk("./mat"):
-        if root.find(fn) > -1:
+        if root == './mat/'+fn :
             print("root: " + root)
             for sfile in files:
                 if sfile.find('.mat') > -1:
@@ -573,5 +592,5 @@ if args.p2l:
     pred2lbl()
     pred2lbl(train=True)
 if args.ed:
-    sca_ts = easydata(train=True)
+    sca_ts = easydata(train=True, val=args.eval)
     easydata(train=False, sca_ts=sca_ts)
