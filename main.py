@@ -595,7 +595,7 @@ elif args.test:
     data_save()
     data_save(train=True)
     if hasattr(trainset, "val_data"):
-    data_save(train=True, val=True)
+        data_save(train=True, val=True)
     get_zip()
     print("load epoch: "+ str(start_epoch))
 else:
@@ -608,4 +608,4 @@ if args.p2l:
     pred2lbl(train=True)
 if args.ed:
     sca_ts = easydata(train=True, val=args.eval)
-    easydata(train=False, sca_ts=sca_ts)
+    easydata(train=False, sca_ts=sca_ts, val=args.eval)
