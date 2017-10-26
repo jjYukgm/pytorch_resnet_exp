@@ -397,7 +397,7 @@ def easydata(train=False, sca_ts=None, val=False):
         val_ind = np.sort(val_ind)
         dataset.val_data = dataset.train_data[easy_ind[val_ind]]
         dataset.val_labels = np.asarray(dataset.train_labels)[easy_ind[val_ind]].tolist()
-        dataset.val_ind = val_ind
+        dataset.val_ind = easy_ind[val_ind]
         easy_ind = np.delete(easy_ind, val_ind)
         easy_num = easy_ind.shape[0]
     
@@ -441,18 +441,22 @@ def easydata(train=False, sca_ts=None, val=False):
     torch.save(dataset, savefn)
     return sca_ts
 
-def data_save(train=False):
+def data_save(train=False, val=False):
     net.eval()
     test_loss = 0
     correct = 0
     total = 0
     runtime = 0.
     if train:
-        loader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=False, num_workers=2)
         fn = "train"
+        if val:
+            fn = "trvali"
+            trainset.train_data = trainset.val_data
+            trainset.train_labels = trainset.val_labels
+        loader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=False, num_workers=2)
     else:
-        loader = testloader
         fn = "test"
+        loader = testloader
     sigs = None
     for batch_idx, (inputs, targets) in enumerate(loader):
         if use_cuda:
@@ -523,13 +527,22 @@ def data_save(train=False):
                     "trhid: train hard data id which is close to ts \n "
                     "teeid: test easy data id which is close to ts \n "
                     "tehid: test hard data id which is close to ts \n "
-                    "ent_ts: the ts splitting data, generating from cross-entropy \n ")
+                    "ent_ts: the ts splitting data, generating from cross-entropy \n "
+                    "treind: easy train data index in all data \n "
+                    "teeind: easy test data index in all data \n ")
         state.update({'treid': trainset.easy_close_ind,
                       'trhid': trainset.hard_close_ind, 
                       'teeid': testset.easy_close_ind, 
                       'tehid': testset.hard_close_ind, 
                       'ent_ts': trainset.sca_ts,
+                      'treind': trainset.easy_ind,
+                      'teeind': testset.easy_ind,
                       'help_str':help_str,})
+    if hasattr(trainset, 'val_ind'):
+        help_str +="veind: val easy data index in all data \n "
+        state.update({'trevind': trainset.val_ind,
+                      'help_str':help_str,})
+    
     if sigs is not None:
         help_str += "sigma: predict data variance para \n "
         state.update({'sigma': sigs,
@@ -581,6 +594,8 @@ elif args.zipf:
 elif args.test:
     data_save()
     data_save(train=True)
+    if hasattr(trainset, "val_data"):
+    data_save(train=True, val=True)
     get_zip()
     print("load epoch: "+ str(start_epoch))
 else:
