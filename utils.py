@@ -26,7 +26,7 @@ def lcm(a, b):
     """Compute the lowest common multiple of a and b"""
     return a * b / gcd(a, b)
 
-def uncertainty_var_loss(criterion, outputs, sig, targets, sna=50):
+def heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=50):
     loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
     for a in xrange(sna):  # samples mean
         outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())
