@@ -103,6 +103,9 @@ transform_test = transforms.Compose([
 if args.dn =="":
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+elif args.dn =="cifar100":
+    trainset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform_train)
+    testset = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform_test)
 else:
     trainset = torch.load('./data/'+args.dn+'.train')
     testset = torch.load('./data/'+args.dn+'.test')
@@ -124,6 +127,8 @@ if args.ft:
     net_dir += '_ft'
 if not args.pn =="":
     net_dir += '_p' + args.pn
+if not args.dn =="":
+    net_dir += '_d' + args.dn
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
 
@@ -498,6 +503,7 @@ def data_save(train=False, val=False):
             gts = np.concatenate((gts, gt), axis=0)
     # Save checkpoint.
     acc = 100.*correct/total
+    preds = preds.squeeze()
     prbool = np.equal(preds, gts)
     pright = np.ones(preds.shape, dtype=np.int8)
     pright[prbool==False] = 0.
