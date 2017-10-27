@@ -7,3 +7,4 @@ plot/
 *.test
 *.swp
 data/cifar-10*/*
+*.ipynb*
