@@ -60,6 +60,15 @@ def get_mean_and_std(dataset):
     std.div_(len(dataset))
     return mean, std
 
+def softmax(dist):
+    return np.exp(dist) / np.array([np.sum(np.exp(dist), axis=1),] *dist.shape[1]).transpose()
+
+def crossEntropy(dist):    
+    return (-dist_sm*np.log2(dist_sm)).sum(axis=1)
+
+def softmaxEntropy(dist):
+    return crossEntropy(softmax(dist))
+    
 def init_params(net):
     '''Init layer parameters.'''
     for m in net.modules():

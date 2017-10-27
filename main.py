@@ -25,6 +25,7 @@ import numpy as np
 import time
 import shutil
 # for easydata
+from utils import softmaxEntropy
 from utils import gcd, lcm
 # for loss
 from utils import heteroscedastic_uncertainty_loss
@@ -379,8 +380,8 @@ def easydata(train=False, sca_ts=None, val=False):
     
     ## get score to cut
     dist = mat['pred_confidence']   # get predict
-    dist_sm = np.exp(dist) / np.array([np.sum(np.exp(dist), axis=1),] *dist.shape[1]).transpose()
-    entropy = (-dist_sm*np.log2(dist_sm)).sum(axis=1)   # get cross-entropy to be cut-ts
+    # dist_sm = np.exp(dist) / np.array([np.sum(np.exp(dist), axis=1),] *dist.shape[1]).transpose()   # softmax
+    entropy = softmaxEntropy(dist)   # get cross-entropy to be cut-ts
     
     
     if sca_ts is None:  # gen cut easy ts

@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import average_precision_score
+
+from util import softmaxEntropy
 '''
 python analysis.py -n r_37_2_lr1e-1_e200,r_37_2_lr1e-1_best,r_37_2_lr1e-2_e200,r_37_2_lr1e-2_best --prc 
 '''
@@ -26,21 +28,28 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 analysis')
 parser.add_argument('-n', '--net', default="net", type=str, help='net name')
 parser.add_argument('--debug', '-d', action='store_true', help='debug mode')
 parser.add_argument('--prc', action='store_true', help='prec recall curve')
+parser.add_argument('--eu', action='store_true', help='Aleatoric uncertainty-entropy plot')
 parser.add_argument('--gr', action='store_true', help='plot group')
 args = parser.parse_args()
 
-
-def pr_curves(nets, train=False):
-    nets = nets.split(",")
-    for n in nets:
-        pr_curve(n)
-
-def pr_curve(net,train=False):
-    # load pred
+# for analysis
+def getMatExt(train=False, val=False):
     if train:
         fn = "train"
+        if val:
+            fn = "trvali"
     else:
         fn = "test"
+    return fn
+
+def pr_curves(nets, train=False, val=False):
+    nets = nets.split(",")
+    for n in nets:
+        pr_curve(n, train=train, val=val)
+
+def pr_curve(net,train=False, val=False):
+    ## load pred
+    fn = getMatExt(train=train, val=val)
     # get data & analysis ap, recall
     print(net+'_'+fn+": (recall, prec)")
     mat = sio.loadmat(os.path.join('mat', net, fn+'.mat'))
@@ -52,7 +61,7 @@ def pr_curve(net,train=False):
     if num_cls==2:
         gt_bi = np.hstack((gt_bi, 1 - gt_bi))
     
-    # For each class
+    ## For each class
     precision = dict()
     recall = dict()
     average_precision = dict()
@@ -60,11 +69,12 @@ def pr_curve(net,train=False):
         precision[i], recall[i], _ = precision_recall_curve(gt_bi[:, i], y_score[:, i])
         average_precision[i] = average_precision_score(gt_bi[:, i], y_score[:, i])
 
-    # A "micro-average": quantifying score on all classes jointly
+    ## A "micro-average": quantifying score on all classes jointly
     precision["micro"], recall["micro"], _ = precision_recall_curve(gt_bi.ravel(), y_score.ravel())
     average_precision["micro"] = average_precision_score(gt_bi, y_score, average="micro")
     print('Average precision score, micro-averaged over all classes: {0:0.2f}'.format(average_precision["micro"]))
-    # plot
+    
+    ## plot
     lines = []
     labels = []
 
@@ -86,7 +96,68 @@ def pr_curve(net,train=False):
     plt.ylabel('Precision')
     plt.title('Precision-Recall curve to multi-class')
     lgd = plt.legend(lines, labels, loc=(0, -1.0), prop=dict(size=14))
-    # save
+    ## save
+    sdir = os.path.join('plot',net)
+    if not os.path.isdir(sdir):
+        os.makedirs(sdir)
+    plt.tight_layout()
+    plt.savefig(os.path.join(sdir,"plot_"+fn+"_prc.png"), bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=fig.dpi)
+    plt.close(fig)
+ 
+
+def entropyUncertainty(net,train=False, val=False):
+    ## load pred
+    fn = getMatExt(train=train, val=val)
+    # get data & analysis ap, recall
+    print(net+'_'+fn+": (entropy, Aleatoric Uncertainty)")
+    mat = sio.loadmat(os.path.join('mat', net, fn+'.mat'))
+    if not 'sigma' in mat:
+        print('net: %s/%s has no pred sigma' % (net, fn))
+    y_score = np.array(mat['pred_confidence'])
+    ent = softmaxEntropy(y_score)
+    
+    num_cls = y_score.shape[-1]
+    lb = preprocessing.LabelBinarizer()
+    lb.fit(range(0, num_cls))
+    gt_bi = lb.transform(np.array(mat['ground_truth']).squeeze())
+    if num_cls==2:
+        gt_bi = np.hstack((gt_bi, 1 - gt_bi))
+    
+    ## For each class
+    precision = dict()
+    recall = dict()
+    average_precision = dict()
+    for i in range(num_cls):
+        precision[i], recall[i], _ = precision_recall_curve(gt_bi[:, i], y_score[:, i])
+        average_precision[i] = average_precision_score(gt_bi[:, i], y_score[:, i])
+
+    ## A "micro-average": quantifying score on all classes jointly
+    precision["micro"], recall["micro"], _ = precision_recall_curve(gt_bi.ravel(), y_score.ravel())
+    average_precision["micro"] = average_precision_score(gt_bi, y_score, average="micro")
+    print('Average precision score, micro-averaged over all classes: {0:0.2f}'.format(average_precision["micro"]))
+    ## plot
+    lines = []
+    labels = []
+
+    for i in range(num_cls):
+        l, = plt.plot(recall[i], precision[i], lw=2)
+        lines.append(l)
+        labels.append('class {0} (area = {1:0.2f})'
+                      ''.format(i, average_precision[i]))
+
+    l, = plt.plot(recall["micro"], precision["micro"], color='gold', lw=2)
+    lines.append(l)
+    labels.append('micro-average Precision-recall (area = {0:0.2f})'
+                  ''.format(average_precision["micro"]))
+    fig = plt.gcf()
+    fig.subplots_adjust(bottom=0.75)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall curve to multi-class')
+    lgd = plt.legend(lines, labels, loc=(0, -1.0), prop=dict(size=14))
+    ## save
     sdir = os.path.join('plot',net)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
@@ -103,6 +174,7 @@ def remove_file():
         shutil.rmtree(os.path.join('plot', args.net), ignore_errors=True)
 
 plt.ioff() 
+
 # confirm dir exist
 if not os.path.isdir('plot'):
     os.mkdir('plot')
@@ -118,3 +190,4 @@ if args.prc:
     else:
         pr_curve(args.net)
         pr_curve(args.net, train=True)
+elif args.eu:
