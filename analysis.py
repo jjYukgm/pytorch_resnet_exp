@@ -19,7 +19,7 @@ from sklearn import preprocessing
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import average_precision_score
 
-from util import softmaxEntropy
+from utils import softmaxEntropy
 '''
 python analysis.py -n r_37_2_lr1e-1_e200,r_37_2_lr1e-1_best,r_37_2_lr1e-2_e200,r_37_2_lr1e-2_best --prc 
 '''
@@ -113,56 +113,37 @@ def entropyUncertainty(net,train=False, val=False):
     mat = sio.loadmat(os.path.join('mat', net, fn+'.mat'))
     if not 'sigma' in mat:
         print('net: %s/%s has no pred sigma' % (net, fn))
+        return
+
     y_score = np.array(mat['pred_confidence'])
     ent = softmaxEntropy(y_score)
+    ent = np.squeeze(ent)
+    unc = np.array(mat['sigma'])
+    unc = np.absolute(unc)
+    unc = np.mean(unc, axis=1)
+    unc = np.squeeze(unc)
     
-    num_cls = y_score.shape[-1]
-    lb = preprocessing.LabelBinarizer()
-    lb.fit(range(0, num_cls))
-    gt_bi = lb.transform(np.array(mat['ground_truth']).squeeze())
-    if num_cls==2:
-        gt_bi = np.hstack((gt_bi, 1 - gt_bi))
-    
-    ## For each class
-    precision = dict()
-    recall = dict()
-    average_precision = dict()
-    for i in range(num_cls):
-        precision[i], recall[i], _ = precision_recall_curve(gt_bi[:, i], y_score[:, i])
-        average_precision[i] = average_precision_score(gt_bi[:, i], y_score[:, i])
-
-    ## A "micro-average": quantifying score on all classes jointly
-    precision["micro"], recall["micro"], _ = precision_recall_curve(gt_bi.ravel(), y_score.ravel())
-    average_precision["micro"] = average_precision_score(gt_bi, y_score, average="micro")
-    print('Average precision score, micro-averaged over all classes: {0:0.2f}'.format(average_precision["micro"]))
     ## plot
     lines = []
     labels = []
 
-    for i in range(num_cls):
-        l, = plt.plot(recall[i], precision[i], lw=2)
-        lines.append(l)
-        labels.append('class {0} (area = {1:0.2f})'
-                      ''.format(i, average_precision[i]))
-
-    l, = plt.plot(recall["micro"], precision["micro"], color='gold', lw=2)
+    l, = plt.plot(ent, unc, ',')
     lines.append(l)
-    labels.append('micro-average Precision-recall (area = {0:0.2f})'
-                  ''.format(average_precision["micro"]))
+    labels.append('net: ' + net)
     fig = plt.gcf()
     fig.subplots_adjust(bottom=0.75)
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.title('Precision-Recall curve to multi-class')
+    plt.xlim([min(ent), max(ent)])
+    plt.ylim([min(unc), max(unc)])
+    plt.xlabel('Cross-Entropy')
+    plt.ylabel('Aleatoric Uncertainty')
+    plt.title('Two Threshold Distribution Compare')
     lgd = plt.legend(lines, labels, loc=(0, -1.0), prop=dict(size=14))
     ## save
     sdir = os.path.join('plot',net)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
     plt.tight_layout()
-    plt.savefig(os.path.join(sdir,"plot_"+fn+"_prc.png"), bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=fig.dpi)
+    plt.savefig(os.path.join(sdir,"plot_"+fn+"_eu.png"), bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=fig.dpi)
     plt.close(fig)
  
 def remove_file():
@@ -191,3 +172,5 @@ if args.prc:
         pr_curve(args.net)
         pr_curve(args.net, train=True)
 elif args.eu:
+    entropyUncertainty(args.net)
+    entropyUncertainty(args.net,train=True)
