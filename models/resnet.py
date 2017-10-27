@@ -351,8 +351,27 @@ def r_37d2():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=False, c2d=True)
 def r_37d3():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=False, c2d=False)
+
+def r_73d():
+    return ResNet3(BasicBlockD, [18,18,18,18], num_layers=2, c1d=True, c2d=True)
+def r_73d2():
+    return ResNet3(BasicBlockD, [18,18,18,18], num_layers=2, c1d=False, c2d=True)
+def r_73d3():
+    return ResNet3(BasicBlockD, [18,18,18,18], num_layers=2, c1d=False, c2d=False)
+
+def r_91d():
+    return ResNet3(BasicBlockD, [18,18,9,0], num_layers=3, c1d=True, c2d=True)
+def r_91d2():
+    return ResNet3(BasicBlockD, [18,18,9,0], num_layers=3, c1d=False, c2d=True)
+def r_91d3():
+    return ResNet3(BasicBlockD, [18,18,9,0], num_layers=3, c1d=False, c2d=False)
+
 def r_110d():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=3, c1d=True, c2d=True)
+
+def r_110d3():
+    return ResNet3(BasicBlockD, [18,18,18,18], num_layers=3, c1d=False, c2d=False)
+
 
 def test():
     net = r_37d()
