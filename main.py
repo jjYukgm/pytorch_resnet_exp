@@ -206,24 +206,8 @@ else:
     # net = DPN92()
     # net = ShuffleNetG2()
     # net = SENet18()
-    if args.net == "r_37":
-        net = r_37()
-    elif args.net =="r_37_2":
-        net = r_37_2()
-    elif args.net =="r_73":
-        net = r_73()
-    elif args.net =="r_91":
-        net = r_91()
-    elif args.net =="r_110":
-        net = r_110()
-    elif args.net =="r_37d":
-        net = r_37d()
-    elif args.net =="r_37d2":
-        net = r_37d2()
-    elif args.net =="r_37d3":
-        net = r_37d3()
-    elif args.net =="r_110d":
-        net = r_110d()
+    if hasattr(rn, args.net):
+        net = getattr(rn, args.net)()
     else:
         print('There is no ' + args.net)
         exit()
