@@ -58,10 +58,8 @@ class BasicBlockD(nn.Module):
         super(BasicBlockD, self).__init__()
         self.conv1 = conv3x3(in_planes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv1_drop = nn.Dropout2d()
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2_drop = nn.Dropout2d()
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion*planes:
@@ -74,13 +72,11 @@ class BasicBlockD(nn.Module):
 
     def forward(self, x):
         if self.c1d:
-            out = F.relu(self.bn1(self.conv1_drop(self.conv1(x))))
-            out = F.dropout(out, training=self.training)
+            out = F.relu(self.bn1(F.dropout(self.conv1(x), training=self.training)))
         else:
             out = F.relu(self.bn1(self.conv1(x)))
         if self.c2d:
-            out = self.bn2(self.conv2_drop(self.conv2(out)))
-            out = F.dropout(out, training=self.training)
+            out = self.bn2(F.dropout(self.conv2(out), training=self.training))
         else:
             out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
@@ -316,8 +312,7 @@ class ResNet3(nn.Module):
 
     def forward(self, x):
         if self.c1d:
-            out = F.relu(self.bn1(self.conv1_drop(self.conv1(x))))
-            out = F.dropout(out, training=self.training)
+            out = F.relu(self.bn1(F.dropout(self.conv1(x), training=self.training)))
         else:
             out = F.relu(self.bn1(self.conv1(x)))
         if self.num_layers >0:
