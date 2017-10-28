@@ -15,6 +15,12 @@ import torch.nn.init as init
 import numpy as np
 from torch.autograd import Variable
 
+# for coarse lbl
+from PIL import Image
+if sys.version_info[0] == 2:
+    import cPickle as pickle
+else:
+    import pickle
 
 def gcd(a,b):
     """Compute the greatest common divisor of a and b"""
@@ -45,6 +51,103 @@ def uncertainty_loss(criterion, outputs, sig, targets, sna=50):
     
     loss /= sna
     return loss
+    
+def reassignlbl(fl, cl, sub=-1, reassign=True):
+    inlbl = np.asarray(fl)[np.asarray(cl) == sub]
+    if not reassign:
+        return inlbl.tolist()
+    cls = np.unique(inlbl)
+    outlbl = inlbl
+    for i, c in enumerate(cls):
+        outlbl[inlbl == c] = i
+    return outlbl.tolist()
+    
+
+class ci100dataset(torch.utils.data.Dataset):
+    base_folder = 'cifar-100-python'
+    def __init__(self, root, train=True, transform=None, target_transform=None, coarse=False, reassign=True, sub=-1):
+        self.root = root
+        self.train = train
+        self.transform = transform
+        self.target_transform = target_transform
+        self.coarse = coarse
+        self.sub = sub
+        if self.train:
+                self.train_labels = []
+                
+                f = 'train'
+                file = os.path.join(self.root, self.base_folder, f)
+                fo = open(file, 'rb')
+                if sys.version_info[0] == 2:
+                    entry = pickle.load(fo)
+                else:
+                    entry = pickle.load(fo, encoding='latin1')
+                self.train_data = entry['data']
+                if self.coarse:
+                    self.train_labels = entry['fine_labels']
+                else:
+                    self.train_labels = entry['coarse_labels']
+                fo.close()
+                
+                self.train_data = self.train_data.reshape((50000, 3, 32, 32))
+                self.train_data = self.train_data.transpose((0, 2, 3, 1))  # convert to HWC
+                if self.sub != -1:
+                    self.train_labels = reassignlbl(entry['fine_labels'], entry['coarse_labels'], 
+                                                    self.sub, reassign=reassign)
+                    self.train_data = self.train_data[cl == self.sub]
+        else:
+                f = 'test'
+                file = os.path.join(self.root, self.base_folder, f)
+                fo = open(file, 'rb')
+                if sys.version_info[0] == 2:
+                    entry = pickle.load(fo)
+                else:
+                    entry = pickle.load(fo, encoding='latin1')
+                self.test_data = entry['data']
+                if self.coarse:
+                    self.test_labels = entry['fine_labels']
+                else:
+                    self.test_labels = entry['coarse_labels']
+                fo.close()
+                self.test_data = self.test_data.reshape((10000, 3, 32, 32))
+                self.test_data = self.test_data.transpose((0, 2, 3, 1))  # convert to HWC
+                if self.sub != -1:
+                    self.train_labels = reassignlbl(entry['fine_labels'], entry['coarse_labels'], 
+                                                    self.sub, reassign=reassign)
+                    self.test_data = self.test_data[cl == self.sub]
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+        Returns:
+            tuple: (image, target) where target is index of the target class.
+        """
+        if self.train:
+            img, target = self.train_data[index], self.train_labels[index]
+        else:
+            img, target = self.test_data[index], self.test_labels[index]
+
+        # doing this so that it is consistent with all other datasets
+        # to return a PIL Image
+        img = Image.fromarray(img)
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return img, target
+
+    def __len__(self):
+        if self.train:
+            return len(self.train_data)
+        else:
+            return len(self.test_data)
+
+
+    
 
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
@@ -64,7 +167,7 @@ def softmax(dist):
     return np.exp(dist) / np.array([np.sum(np.exp(dist), axis=1),] *dist.shape[1]).transpose()
 
 def crossEntropy(dist):    
-    return (-dist_sm*np.log2(dist_sm)).sum(axis=1)
+    return (-dist*np.log2(dist)).sum(axis=1)
 
 def softmaxEntropy(dist):
     return crossEntropy(softmax(dist))

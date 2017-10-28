@@ -259,6 +259,10 @@ class ResNet2(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
+        
+    def genNewLin(self, num_classes):
+        in_planes = self.linear.in_features
+        self.linear = nn.Linear(in_planes, num_classes)
 
 
 def r_37():
@@ -340,7 +344,10 @@ class ResNet3(nn.Module):
             if isinstance(module, BasicBlockD):
                 module.c1d = c1d
                 module.c2d = c2d
-        
+    def genNewLin(self, num_classes):
+        in_planes = self.linear.in_features
+        self.linear = nn.Linear(in_planes, num_classes)
+        self.sigfc = nn.Linear(in_planes, num_classes)
 
 def r_37d():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=True, c2d=True)

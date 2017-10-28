@@ -32,15 +32,46 @@ from utils import gcd, lcm
 from utils import heteroscedastic_uncertainty_loss
 # for run-time replace func in class
 import types
+# for coarse data
+from utils import ci100dataset
+
 '''
-python main.py -n r_37
-python main.py -n r_37 -t --p2l &&\
+# 2lbl
+python main.py -n r_37 &&\
+python main.py -n r_37 -t -c n_e200 --p2l &&\
 python main.py -n r_37_2 --dn r_37_2b --lr 0.01 &&\
-python main.py -n r_37_2_lr1e-1 -t --dn r_37_2b -c e200 && \
-python main.py -n r_37_2_lr1e-1 -t --dn r_37_2b && \
-python main.py -n r_37_2_lr1e-2 -t --dn r_37_2b -c e200 && \
-python main.py -n r_37_2_lr1e-2 -t --dn r_37_2b
-python main.py -n r_37_2 --r2 --dn r_37_2b -c e200
+python main.py -n r_37_2_lr1e-1 -t --dn r_37_2b -c e200 
+# 2 lbl finetune
+python main.py -n r_37_2 --r2 --pn r_37 -c n_e200 --ft --dn r_37_2b -e 210 &&\
+python main.py -n r_37_2_r2 -t -c e400 --dn r_37_2b
+
+# easy data finetune
+python main.py -n r_110 &&\
+python main.py -n r_110 -t -c e200 --ed && \
+python main.py -n r_37 --r3 --pn r_37 -c n_e200 --dn r_110_ed -e 210 && \
+python main.py -n r_37_r3_pr_37_dr_110_ed -t -c e200 --dn r_110_ed
+
+# easy data val
+python main.py -n r_110 -t -c e200 --ed --eval && \
+python main.py -n r_37 --r3 --pn r_37 -c n_e200 --dn r_110_edv -e 210 && \
+python main.py -n r_37_r3_pr_37_dr_110_edv -t -c e200 --dn r_110_edv
+
+# uncertainty
+python main.py -n r_37d --uc && \
+python main.py -n r_37d3 --uc && \
+python main.py -n r_37d --uc --sna 50 -r --pn r_37d3 -c e200 --ez --ccs --uc1d --uc2d && \
+python main.py -n r_37d_pr_37d3 --uc -t -c e200
+
+# coarse data
+python main.py -n r_37d3 --uc --dn ci100 && \
+python main.py -n r_110d3 --uc --dn ci100 && \
+python main.py -n r_37d3 --uc --pn r_37d3_dci100 -c e200 --dn ci100 --coa --ez -e 50 && \
+python main.py -n r_37d3 --uc --dn ci100 --coa && \
+python main.py -n r_37d3 --uc --pn r_37d3_dci100 -c e200 --dn ci100 --sub 0 --reas --ez -e 50 && \
+python main.py -n r_110d3 --uc -t -c e200 --dn ci100 --sub 0 && \
+python main.py -n r_37d3_pr_37d3 --uc -t -c e200 --dn ci100 --sub 0 --reas
+
+
 
 matlab:
 matlab -nosplash -nodesktop
@@ -61,11 +92,12 @@ print("".join(lines[0]))
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('-n', '--net', default="net", type=str, help='net name')
 parser.add_argument('--ckptn', '-c', default="best", type=str, help='ckpt name')
-parser.add_argument('--dn', default="", type=str, help='data name')
+parser.add_argument('--dn', default="", type=str, help='data name or ci100')
 parser.add_argument('--pn', default="", type=str, help='pretrain name')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epoch', '-e', default=200, type=int, help='next training epoch')
 parser.add_argument('--sna', '-a', default=50, type=int, help='sample num for Aleatoric Uncertainty')
+parser.add_argument('--sub', default=-1, type=int, help='sub-set of coarse lbl ind in cifar100, int [0-19]')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--test', '-t', action='store_true', help='test checkpoint')
 parser.add_argument('--zipf', '-z', action='store_true', help='zip the test')
@@ -82,6 +114,8 @@ parser.add_argument('--uc1d', action='store_true', help='c1d')
 parser.add_argument('--uc2d', action='store_true', help='c2d')
 parser.add_argument('--ft', action='store_true', help='finetune only last')
 parser.add_argument('--rm', action='store_true', help='remove net')
+parser.add_argument('--coa', action='store_true', help='cifar100 to coarse lbl')
+parser.add_argument('--reas', action='store_true', help='cifar100 to reassign fine lbl')
 args = parser.parse_args()
 
 use_cuda = torch.cuda.is_available()
@@ -102,12 +136,14 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
+
+
 if args.dn =="":
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-elif args.dn =="cifar100":
-    trainset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform_train)
-    testset = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform_test)
+elif args.dn =="ci100":
+    trainset = ci100dataset(root='./data', transform=transform_train, train=True, coarse=args.coa, reassign=args.reas, sub=args.sub)
+    testset = ci100dataset(root='./data', transform=transform_test, train=False, coarse=args.coa, reassign=args.reas, sub=args.sub)
 else:
     trainset = torch.load('./data/'+args.dn+'.train')
     testset = torch.load('./data/'+args.dn+'.test')
@@ -131,6 +167,10 @@ if not args.pn =="":
     net_dir += '_p' + args.pn
 if not args.dn =="":
     net_dir += '_d' + args.dn
+if args.coa:
+    net_dir += 'c'
+if not args.sub ==-1:
+    net_dir += str(args.sub)
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
 
@@ -185,13 +225,16 @@ elif args.resume or args.test or args.pn!="":
     if not args.ez:
         start_epoch = checkpoint['epoch']
     
-    if not hasattr(net, "setdrop"): # run-time replace func in class
-        print("add net.setdrop")
-        def setdrop(self, c1d, c2d):
-            self.c1d = c1d
-            self.c2d = c2d
-        net.setdrop = types.MethodType(setdrop, net)
+    if not args.test and args.dn=="ci100" and (args.sub !=-1 or args.coa):
+        net.genNewLin(max(trainset.train_labels) +1)
+    
     if args.ccs:
+        if not hasattr(net, "setdrop"): # run-time replace func in class
+            print("add net.setdrop")
+            def setdrop(self, c1d, c2d):
+                self.c1d = c1d
+                self.c2d = c2d
+            net.setdrop = types.MethodType(setdrop, net)
         print("set net.setdrop")
         net.setdrop(args.uc1d, args.uc2d)
         
@@ -211,7 +254,8 @@ else:
     else:
         print('There is no ' + args.net)
         exit()
-  
+    if args.dn =="ci100":
+        net.genNewLin(max(trainset.train_labels) +1)
 
 
 # check net is uc-net
@@ -224,7 +268,7 @@ if use_cuda:
     cudnn.benchmark = True
 
 
-if args.dn =="":
+if not hasattr(trainset, 'weights'):
     criterion = nn.CrossEntropyLoss()
 else:
     weights = torch.from_numpy(trainset.weights)
