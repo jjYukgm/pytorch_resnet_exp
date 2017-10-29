@@ -264,6 +264,12 @@ class ResNet2(nn.Module):
         in_planes = self.linear.in_features
         self.linear = nn.Linear(in_planes, num_classes)
 
+    def finetuneLast(self):
+        for param in self.parameters():
+            param.requires_grad = False
+        for param in self.linear.parameters():
+            param.requires_grad = True
+
 
 def r_37():
     return ResNet2(BasicBlock, [18,18,18,18], num_layers=1)
@@ -348,7 +354,14 @@ class ResNet3(nn.Module):
         in_planes = self.linear.in_features
         self.linear = nn.Linear(in_planes, num_classes)
         self.sigfc = nn.Linear(in_planes, num_classes)
-
+    def finetuneLast(self):
+        for param in self.parameters():
+            param.requires_grad = False
+        for param in self.linear.parameters():
+            param.requires_grad = True
+        for param in self.sigfc.parameters():
+            param.requires_grad = True
+        
 def r_37d():
     return ResNet3(BasicBlockD, [18,18,18,18], num_layers=1, c1d=True, c2d=True)
 def r_37d2():

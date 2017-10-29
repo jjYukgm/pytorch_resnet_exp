@@ -169,7 +169,7 @@ if not args.dn =="":
     net_dir += '_d' + args.dn
 if args.coa:
     net_dir += 'c'
-if not args.sub ==-1:
+if not args.sub ==-1 and args.reas:
     net_dir += str(args.sub)
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
@@ -187,10 +187,7 @@ if args.r3:
     net = checkpoint['net']
     
     if args.ft:
-        for param in net.parameters():
-            param.requires_grad = False
-        for param in net.linear.parameters():
-            param.requires_grad = True
+        net.finetuneLast()
 
 elif args.r2:
     # Load checkpoint.
@@ -207,10 +204,7 @@ elif args.r2:
         net.linear = nn.Linear(4096, 2)
     
     if args.ft:
-        for param in net.parameters():
-            param.requires_grad = False
-        for param in net.linear.parameters():
-            param.requires_grad = True
+        net.finetuneLast()
     
 elif args.resume or args.test or args.pn!="":
     # Load checkpoint.
@@ -238,6 +232,9 @@ elif args.resume or args.test or args.pn!="":
         print("set net.setdrop")
         net.setdrop(args.uc1d, args.uc2d)
         
+    if args.ft:
+        net.finetuneLast()
+
 else:
     print('==> Building model..')
     # net = VGG('VGG19')
@@ -352,7 +349,11 @@ def test(epoch):
         torch.save(state, './checkpoint/'+net_dir+'/best_ckpt.t7')
         best_acc = acc
     if (epoch+1) % 10 == 0:
-        print('Save per 10 epoch')
+        print('Save per 10 epoch and delete last 10')
+        try:
+            os.remove('./checkpoint/'+net_dir+"/e%03d"%(epoch-9)+'_ckpt.t7')
+        except:
+            print("No epoch: %03d" % (epoch-9))
         state = {
             'net': net.module if use_cuda else net,
             'acc': acc,
