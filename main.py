@@ -68,8 +68,8 @@ python main.py -n r_110d3 --uc --dn ci100 && \
 python main.py -n r_37d3 --uc --pn r_37d3_dci100 -c e200 --dn ci100 --coa --ez -e 50 && \
 python main.py -n r_37d3 --uc --dn ci100 --coa && \
 python main.py -n r_37d3 --uc --pn r_37d3_dci100 -c e200 --dn ci100 --sub 0 --reas --ez -e 50 && \
-python main.py -n r_110d3 --uc -t -c e200 --dn ci100 --sub 0 && \
-python main.py -n r_37d3_pr_37d3 --uc -t -c e200 --dn ci100 --sub 0 --reas
+python main.py -n r_110d3 --uc -t -c e200 --dn ci100 && \
+python main.py -n r_37d3_pr_37d3 --uc -t -c e050 --dn ci100 --sub 0 --reas
 
 
 
@@ -585,20 +585,14 @@ def data_save(train=False, val=False):
         help_str += "sigma: predict data variance para \n "
         state.update({'sigma': sigs,
                       'help_str':help_str,})
-        
-    if args.dn == "":
-        sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
-    else:
-        sdir = os.path.join('mat', net_dir+'_'+args.ckptn+'_'+args.dn)
+    
+    sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
     sio.savemat(sdir+'/'+fn+'.mat', state, do_compression=True)
 
 def get_zip():
-    if args.dn=="":
-        fn = net_dir +'_'+args.ckptn
-    else:
-        fn = net_dir +'_'+args.ckptn+'_'+args.dn
+    fn = net_dir +'_'+args.ckptn
     zf = zipfile.ZipFile('./mat/'+fn + '.zip', mode='w', compression = zipfile.ZIP_DEFLATED)
     for root, folders, files in os.walk("./mat"):
         if root == './mat/'+fn :
