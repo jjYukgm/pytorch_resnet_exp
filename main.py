@@ -219,8 +219,9 @@ elif args.resume or args.test or args.pn!="":
     if not args.ez:
         start_epoch = checkpoint['epoch']
     
-    if not args.test and args.dn=="ci100" and (args.sub !=-1 or args.coa):
-        net.genNewLin(max(trainset.train_labels) +1)
+    num_cls = max(trainset.train_labels) +1
+    if (not args.test) and net.linear.out_features != num_cls:
+        net.genNewLin(num_cls)
     
     if args.ccs:
         if not hasattr(net, "setdrop"): # run-time replace func in class

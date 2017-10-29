@@ -94,7 +94,7 @@ class ci100dataset(torch.utils.data.Dataset):
                 if self.sub != -1:
                     self.train_labels = reassignlbl(entry['fine_labels'], entry['coarse_labels'], 
                                                     self.sub, reassign=reassign)
-                    self.train_data = self.train_data[entry['coarse_labels'] == self.sub]
+                    self.train_data = self.train_data[np.asarray(entry['coarse_labels']) == self.sub]
         else:
                 f = 'test'
                 file = os.path.join(self.root, self.base_folder, f)
@@ -112,9 +112,9 @@ class ci100dataset(torch.utils.data.Dataset):
                 self.test_data = self.test_data.reshape((10000, 3, 32, 32))
                 self.test_data = self.test_data.transpose((0, 2, 3, 1))  # convert to HWC
                 if self.sub != -1:
-                    self.train_labels = reassignlbl(entry['fine_labels'], entry['coarse_labels'], 
+                    self.test_labels = reassignlbl(entry['fine_labels'], entry['coarse_labels'], 
                                                     self.sub, reassign=reassign)
-                    self.test_data = self.test_data[entry['coarse_labels'] == self.sub]
+                    self.test_data = self.test_data[np.asarray(entry['coarse_labels']) == self.sub]
 
     def __getitem__(self, index):
         """
