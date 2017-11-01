@@ -30,6 +30,7 @@ parser.add_argument('--debug', '-d', action='store_true', help='debug mode')
 parser.add_argument('--prc', action='store_true', help='prec recall curve')
 parser.add_argument('--eu', action='store_true', help='Aleatoric uncertainty-entropy plot')
 parser.add_argument('--gr', action='store_true', help='plot group')
+parser.add_argument('--val', '-v', action='store_true', help='There are val data in training')
 args = parser.parse_args()
 
 # for analysis
@@ -42,10 +43,10 @@ def getMatExt(train=False, val=False):
         fn = "test"
     return fn
 
-def pr_curves(nets, train=False, val=False):
+def plots(nets, plot_func, train=False, val=False):
     nets = nets.split(",")
     for n in nets:
-        pr_curve(n, train=train, val=val)
+        plot_func(n, train=train, val=val)
 
 def pr_curve(net,train=False, val=False):
     ## load pred
@@ -124,26 +125,26 @@ def entropyUncertainty(net,train=False, val=False):
     unc = np.squeeze(unc)
     
     ## plot
-    lines = []
-    labels = []
+    # lines = []
+    # labels = []
 
-    l, = plt.plot(ent, unc, ',')
-    lines.append(l)
-    labels.append('net: ' + net)
+    plt.plot(ent, unc, ',')
+    # lines.append(l)
+    # labels.append('net: ' + net)
     fig = plt.gcf()
-    fig.subplots_adjust(bottom=0.75)
+    # fig.subplots_adjust(bottom=0.75)
     plt.xlim([min(ent), max(ent)])
     plt.ylim([min(unc), max(unc)])
     plt.xlabel('Cross-Entropy')
     plt.ylabel('Aleatoric Uncertainty')
     plt.title('Two Threshold Distribution Compare')
-    lgd = plt.legend(lines, labels, loc=(0, -1.0), prop=dict(size=14))
+    # lgd = plt.legend(lines, labels, loc=(0, -1.0), prop=dict(size=14))
     ## save
     sdir = os.path.join('plot',net)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
     plt.tight_layout()
-    plt.savefig(os.path.join(sdir,"plot_"+fn+"_eu.png"), bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=fig.dpi)
+    plt.savefig(os.path.join(sdir,"plot_"+fn+"_eu.png"), bbox_inches='tight', dpi=fig.dpi)
     plt.close(fig)
  
 def remove_file():
@@ -165,12 +166,13 @@ if args.debug:
     pr_curve(args.net)
     # pass 
 if args.prc:
-    if args.net.find(',') > -1:
-        pr_curves(args.net)
-        pr_curves(args.net, train=True)
-    else:
-        pr_curve(args.net)
-        pr_curve(args.net, train=True)
+    plot_func = pr_curve
 elif args.eu:
-    entropyUncertainty(args.net)
-    entropyUncertainty(args.net,train=True)
+    plot_func = entropyUncertainty
+    
+    
+plots(args.net, plot_func)
+plots(args.net, plot_func, train=True)
+if args.val:
+    plots(args.net, plot_func, train=True, val=True)
+    
