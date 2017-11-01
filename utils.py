@@ -16,6 +16,7 @@ import numpy as np
 from torch.autograd import Variable
 
 # for coarse lbl
+from torch.utils.data import Dataset
 from PIL import Image
 if sys.version_info[0] == 2:
     import cPickle as pickle
@@ -63,7 +64,7 @@ def reassignlbl(fl, cl, sub=-1, reassign=True):
     return outlbl.tolist()
     
 
-class ci100dataset(torch.utils.data.Dataset):
+class ci100dataset(Dataset):
     base_folder = 'cifar-100-python'
     def __init__(self, root, train=True, transform=None, target_transform=None, coarse=False, reassign=True, sub=-1):
         self.root = root
