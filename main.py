@@ -402,9 +402,9 @@ def easydata(train=False, sca_ts=None, val=False):
         fn = "test"
         dataset = testset
     if val:
-        savefn = './data/'+args.net+'_edv.'+fn
+        savefn = './data/'+net_dir+'_edv.'+fn
     else:
-        savefn = './data/'+args.net+'_ed.'+fn
+        savefn = './data/'+net_dir+'_ed.'+fn
     ## load pred
     matpath = os.path.join('mat', net_dir+'_'+args.ckptn, fn+'.mat')
     mat = sio.loadmat(matpath)
