@@ -165,7 +165,7 @@ if args.ft:
     net_dir += '_ft'
 if not args.pn =="":
     net_dir += '_p' + args.pn
-if not args.dn =="":
+if not args.dn =="" and not args.test:
     net_dir += '_d' + args.dn
 if args.coa:
     net_dir += 'c'
@@ -586,7 +586,10 @@ def data_save(train=False, val=False):
         state.update({'sigma': sigs,
                       'help_str':help_str,})
     
-    sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
+    if args.dn =="":
+        sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
+    else:
+        sdir = os.path.join('mat', net_dir+'_'+args.ckptn+'_'+args.dn)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
     sio.savemat(sdir+'/'+fn+'.mat', state, do_compression=True)
