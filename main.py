@@ -595,7 +595,10 @@ def data_save(train=False, val=False):
     sio.savemat(sdir+'/'+fn+'.mat', state, do_compression=True)
 
 def get_zip():
-    fn = net_dir +'_'+args.ckptn
+    if args.dn =="":
+        fn = net_dir +'_'+args.ckptn
+    else:
+        fn = net_dir +'_'+args.ckptn+'_'+args.dn
     zf = zipfile.ZipFile('./mat/'+fn + '.zip', mode='w', compression = zipfile.ZIP_DEFLATED)
     for root, folders, files in os.walk("./mat"):
         if root == './mat/'+fn :
