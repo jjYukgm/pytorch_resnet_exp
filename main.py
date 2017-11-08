@@ -114,9 +114,9 @@ def data_name(prefix, parsed_args, **kwargs):
     
 def ckpt_epoch(prefix, parsed_args, **kwargs):
     if parsed_args.pn=="":
-        return getfile(parsed_args.checkpointdir+'/'+parsed_args.pn, prefix)
-    else:
         return getfile(parsed_args.checkpointdir+'/'+parsed_args.net, prefix)
+    else:
+        return getfile(parsed_args.checkpointdir+'/'+parsed_args.pn, prefix)
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 # parser.add_argument('-n', '--net', type=str, help='net name', choices = ckpt_nets())
