@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 '''Train CIFAR10 with PyTorch.'''
 from __future__ import print_function
 
@@ -12,6 +14,7 @@ import torchvision.transforms as transforms
 
 import os
 import argparse
+import argcomplete, pprint
 
 # from models import *
 from models import resnet as rn
@@ -89,11 +92,31 @@ lines = inspect.getsourcelines(net.forward)
 print("".join(lines[0]))
 '''
 
+def getdir(root, prefix):
+    dirname = [name for name in os.listdir(root) if os.path.isdir(root+'/'+name)]
+    return ( name for name in dirname if name.startswith(prefix) )
+
+
+def getfile(root, prefix):
+    dirname = [name for name in os.listdir(root) if os.path.isfile(root+'/'+name)]
+    return ( name for name in dirname if name.startswith(prefix) )
+
+
+def ckpt_nets(prefix, parsed_args, **kwargs):
+    return getdir('checkpoint', prefix)
+
+def mat_nets(prefix, parsed_args, **kwargs):
+    return getdir('mat', prefix)
+
+def data_name(prefix, parsed_args, **kwargs):
+    return getfile('data', prefix)
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('-n', '--net', default="net", type=str, help='net name')
+# parser.add_argument('-n', '--net', type=str, help='net name', choices = ckpt_nets())
+parser.add_argument('-n', '--net', type=str, help='net name').completer = ckpt_nets
 parser.add_argument('--ckptn', '-c', default="best", type=str, help='ckpt name')
 parser.add_argument('--dn', default="", type=str, help='data name or ci100')
-parser.add_argument('--pn', default="", type=str, help='pretrain name')
+parser.add_argument('--pn', default="", type=str, help='pretrain name').completer = ckpt_nets
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epoch', '-e', default=200, type=int, help='next training epoch')
 parser.add_argument('--sna', '-a', default=50, type=int, help='sample num for Aleatoric Uncertainty')
@@ -116,7 +139,9 @@ parser.add_argument('--ft', action='store_true', help='finetune only last')
 parser.add_argument('--rm', action='store_true', help='remove net')
 parser.add_argument('--coa', action='store_true', help='cifar100 to coarse lbl')
 parser.add_argument('--reas', action='store_true', help='cifar100 to reassign fine lbl')
+argcomplete.autocomplete(parser)
 args = parser.parse_args()
+# pprint.pprint(args.net)
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0  # best test accuracy
