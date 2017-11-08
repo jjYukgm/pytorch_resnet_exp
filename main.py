@@ -98,25 +98,33 @@ def getdir(root, prefix):
 
 
 def getfile(root, prefix):
-    dirname = [name for name in os.listdir(root) if os.path.isfile(root+'/'+name)]
+    dirname = [os.path.splitext(name)[0] for name in os.listdir(root) if os.path.isfile(root+'/'+name)]
+    dirname = list(set(dirname))
     return ( name for name in dirname if name.startswith(prefix) )
 
 
 def ckpt_nets(prefix, parsed_args, **kwargs):
-    return getdir('checkpoint', prefix)
+    return getdir(parsed_args.checkpointdir, prefix)
 
 def mat_nets(prefix, parsed_args, **kwargs):
     return getdir('mat', prefix)
 
 def data_name(prefix, parsed_args, **kwargs):
     return getfile('data', prefix)
+    
+def ckpt_epoch(prefix, parsed_args, **kwargs):
+    if parsed_args.pn=="":
+        return getfile(parsed_args.checkpointdir+'/'+parsed_args.pn, prefix)
+    else:
+        return getfile(parsed_args.checkpointdir+'/'+parsed_args.net, prefix)
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 # parser.add_argument('-n', '--net', type=str, help='net name', choices = ckpt_nets())
 parser.add_argument('-n', '--net', type=str, help='net name').completer = ckpt_nets
-parser.add_argument('--ckptn', '-c', default="best", type=str, help='ckpt name')
-parser.add_argument('--dn', default="", type=str, help='data name or ci100')
+parser.add_argument('--ckptn', '-c', default="best", type=str, help='ckpt name').completer = ckpt_epoch
+parser.add_argument('--dn', default="", type=str, help='data name or ci100').completer = data_name
 parser.add_argument('--pn', default="", type=str, help='pretrain name').completer = ckpt_nets
+parser.add_argument('--checkpointdir', default="./checkpoint", type=str, help='checkpoint dir')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epoch', '-e', default=200, type=int, help='next training epoch')
 parser.add_argument('--sna', '-a', default=50, type=int, help='sample num for Aleatoric Uncertainty')
@@ -141,7 +149,36 @@ parser.add_argument('--coa', action='store_true', help='cifar100 to coarse lbl')
 parser.add_argument('--reas', action='store_true', help='cifar100 to reassign fine lbl')
 argcomplete.autocomplete(parser)
 args = parser.parse_args()
-# pprint.pprint(args.net)
+
+# save dir
+net_dir = args.net
+if args.r3:
+    net_dir += '_r3'
+if args.r2:
+    net_dir += '_r2'
+if args.ft:
+    net_dir += '_ft'
+if not args.pn =="":
+    net_dir += '_p' + args.pn
+if not args.dn =="" and not args.test:
+    net_dir += '_d' + args.dn
+if args.coa:
+    net_dir += 'c'
+if not args.sub ==-1 and args.reas:
+    net_dir += str(args.sub)
+if not args.lr == 0.1:
+    net_dir += "_lr%.0E"%(args.lr)
+
+print("net: "+net_dir)
+checkpointdir = args.checkpointdir+'/'+net_dir
+if not os.path.isdir(checkpointdir):
+    os.makedirs(checkpointdir)
+file_name = os.path.join(checkpointdir, 'opt.txt')
+with open(file_name, 'wt') as opt_file:
+    opt_file.write('------------ Options -------------\n')
+    for k, v in sorted(args.items()):
+        opt_file.write('%s: %s\n' % (str(k), str(v)))
+    opt_file.write('-------------- End ----------------\n')
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0  # best test accuracy
@@ -180,35 +217,12 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 
 
-# save dir
-net_dir = args.net
-if args.r3:
-    net_dir += '_r3'
-if args.r2:
-    net_dir += '_r2'
-if args.ft:
-    net_dir += '_ft'
-if not args.pn =="":
-    net_dir += '_p' + args.pn
-if not args.dn =="" and not args.test:
-    net_dir += '_d' + args.dn
-if args.coa:
-    net_dir += 'c'
-if not args.sub ==-1 and args.reas:
-    net_dir += str(args.sub)
-if not args.lr == 0.1:
-    net_dir += "_lr%.0E"%(args.lr)
-
-print("net: "+net_dir)
-if not os.path.isdir('checkpoint/'+net_dir):
-    os.makedirs('checkpoint/'+net_dir)
-
 
 # Model
 if args.r3:
     print('==> Resuming from checkpoint to easy new..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     
     if args.ft:
@@ -217,11 +231,11 @@ if args.r3:
 elif args.r2:
     # Load checkpoint.
     print('==> Resuming from checkpoint to 2 lbl..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
     if args.pn=="":
-        checkpoint = torch.load('./checkpoint/'+args.dn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+args.dn+'/'+args.ckptn+'_ckpt.t7')
     else:
-        checkpoint = torch.load('./checkpoint/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     start_epoch = checkpoint['epoch']
     # replace para
@@ -234,12 +248,12 @@ elif args.r2:
 elif args.resume or args.test or args.pn!="":
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
     if args.pn=="":
-        checkpoint = torch.load('./checkpoint/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
         best_acc = checkpoint['acc']
     else:
-        checkpoint = torch.load('./checkpoint/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     if not args.ez:
         start_epoch = checkpoint['epoch']
@@ -372,12 +386,12 @@ def test(epoch):
             'acc': acc,
             'epoch': epoch+1,
         }
-        torch.save(state, './checkpoint/'+net_dir+'/best_ckpt.t7')
+        torch.save(state, checkpointdir+'/best_ckpt.t7')
         best_acc = acc
     if (epoch+1) % 10 == 0:
         print('Save per 10 epoch and delete last 10')
         try:
-            os.remove('./checkpoint/'+net_dir+"/e%03d"%(epoch-9)+'_ckpt.t7')
+            os.remove(checkpointdir+"/e%03d"%(epoch-9)+'_ckpt.t7')
         except:
             print("No epoch: %03d" % (epoch-9))
         state = {
@@ -385,7 +399,7 @@ def test(epoch):
             'acc': acc,
             'epoch': epoch+1,
         }
-        torch.save(state, './checkpoint/'+net_dir+"/e%03d"%(epoch+1)+'_ckpt.t7')
+        torch.save(state, checkpointdir+"/e%03d"%(epoch+1)+'_ckpt.t7')
 
 
 def pred2lbl(train=False):
@@ -635,7 +649,7 @@ def get_zip():
                     zf.write(aFile)
 
 def remove_file():
-    shutil.rmtree('./checkpoint/'+net_dir, ignore_errors=True)
+    shutil.rmtree(checkpointdir, ignore_errors=True)
     shutil.rmtree('./mat/'+net_dir+'_'+args.ckptn, ignore_errors=True)
     try:
         os.remove('./mat/'+net_dir+'_'+args.ckptn+'.zip')
