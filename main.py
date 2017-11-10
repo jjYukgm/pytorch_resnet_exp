@@ -544,18 +544,19 @@ def data_save(train=False, val=False):
         if args.uc:
             outputs, sig = net(inputs)
             loss_u, output_avg = heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=args.sna)
+            _, predicted = torch.max(outputs.data, 1)
             _, pred_u = torch.max(output_avg.data, 1)
+            correct += pred_u.eq(targets.data).cpu().sum()
         else:
             outputs = net(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += predicted.eq(targets.data).cpu().sum()
             
         
         loss = criterion(outputs, targets)
-        _, predicted = torch.max(outputs.data, 1)
         last_time = time.time()
         test_loss += loss.data[0]
         total += targets.size(0)
-        pr = predicted.eq(targets.data).cpu()
-        correct += predicted.eq(targets.data).cpu().sum()
 
         progress_bar(batch_idx, len(loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
