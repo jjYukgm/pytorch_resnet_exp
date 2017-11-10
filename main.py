@@ -176,7 +176,7 @@ if not os.path.isdir(checkpointdir):
 file_name = os.path.join(checkpointdir, 'opt.txt')
 with open(file_name, 'wt') as opt_file:
     opt_file.write('------------ Options -------------\n')
-    for k, v in sorted(args.items()):
+    for k, v in sorted(vars(args).items()):
         opt_file.write('%s: %s\n' % (str(k), str(v)))
     opt_file.write('-------------- End ----------------\n')
 
@@ -334,7 +334,7 @@ def train(epoch):
         inputs, targets = Variable(inputs), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
-            loss = heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=args.sna)
+            loss,_ = heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=args.sna)
         else:
             outputs = net(inputs)
             loss = criterion(outputs, targets)
@@ -362,15 +362,16 @@ def test(epoch):
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         if args.uc:
             outputs, sig = net(inputs)
-            loss = heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=args.sna)
+            loss, output_avg = heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=args.sna)
+            _, predicted = torch.max(output_avg.data, 1)
         else:
             outputs = net(inputs)
             loss = criterion(outputs, targets)
+            _, predicted = torch.max(outputs.data, 1)
         
         # pdb.set_trace()
 
         test_loss += loss.data[0]
-        _, predicted = torch.max(outputs.data, 1)
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
 
@@ -542,11 +543,13 @@ def data_save(train=False, val=False):
         begin_time = last_time
         if args.uc:
             outputs, sig = net(inputs)
+            loss_u, output_avg = heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=args.sna)
+            _, pred_u = torch.max(output_avg.data, 1)
         else:
             outputs = net(inputs)
+            
+        
         loss = criterion(outputs, targets)
-        
-        
         _, predicted = torch.max(outputs.data, 1)
         last_time = time.time()
         test_loss += loss.data[0]
@@ -558,20 +561,35 @@ def data_save(train=False, val=False):
             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
         # save data:
         out = outputs.data.cpu().numpy()    # [ 100, 10] no SM
-        if args.uc: sig_ = sig.data.cpu().numpy()       # [ 100, 10] no SM
+        ent = softmaxEntropy(out)
+        if args.uc: 
+            sig_ = sig.data.cpu().numpy()       # [ 100, 10] no SM
+            pred_u_ = pred_u.cpu().numpy()      # [ 100, ] predict 
+            output_avg_ = output_avg.data.cpu().numpy()
+            ent_un = softmaxEntropy(output_avg_)
         pred = predicted.cpu().numpy()      # [ 100, ] predict 
         gt = targets.data.cpu().numpy()     # [ 100, ] gt
         runtime += last_time - begin_time   # time(b=100)(sec)
         if batch_idx==0:
             dist = out
-            if args.uc: sigs = sig_
             preds = pred
             gts = gt
+            ents = ent
+            if args.uc: 
+                dist_avgs = output_avg_
+                sigs = sig_
+                pred_us = pred_u_
+                ent_uns = ent_un
         else:
             dist = np.concatenate((dist, out), axis=0)
-            if args.uc: sigs = np.concatenate((sigs, sig_), axis=0)
             preds = np.concatenate((preds, pred), axis=0)
             gts = np.concatenate((gts, gt), axis=0)
+            ents = np.concatenate((ents, ent), axis=0)
+            if args.uc: 
+                dist_avgs = np.concatenate((dist_avgs, output_avg_), axis=0)
+                sigs = np.concatenate((sigs, sig_), axis=0)
+                pred_us = np.concatenate((pred_us, pred_u_), axis=0)
+                ent_uns = np.concatenate((ent_uns, ent_un), axis=0)
     # Save checkpoint.
     acc = 100.*correct/total
     preds = preds.squeeze()
@@ -583,7 +601,8 @@ def data_save(train=False, val=False):
     help_str = ("pred_confidence: distribution of predicted confidence, array[n, d] \n "
                 "n: num of data, d: num of class \n "
                 "*_sort: sorted by d(small to large) \n "
-                "class_predict: predict class[0:9] \n "
+                "class_predict: predict class[0:c] \n "
+                "cross_entropy: cross-entropy of pred_confidence, array[n, 1]  \n "
                 "predict_right: predict right/wrong[1,0] \n "
                 "accuracy: total accuracy[0,100] \n "
                 "runtime: runtime on n data in seconds \n "
@@ -592,6 +611,7 @@ def data_save(train=False, val=False):
         'epoch': start_epoch,
         'pred_confidence': dist, 
         'pred_confidence_sort': dists, 
+        'cross_entropy': ents, 
         'ground_truth': gts, 
         'class_predict': preds, 
         'predict_right': pright, 
@@ -614,16 +634,22 @@ def data_save(train=False, val=False):
                       'ent_ts': trainset.sca_ts,
                       'treind': trainset.easy_ind,
                       'teeind': testset.easy_ind,
-                      'help_str':help_str,})
+                      'help_str': help_str,})
     if hasattr(trainset, 'val_ind'):
-        help_str +="veind: val easy data index in all data \n "
+        help_str += "veind: val easy data index in all data \n "
         state.update({'trevind': trainset.val_ind,
-                      'help_str':help_str,})
+                      'help_str': help_str,})
     
     if sigs is not None:
-        help_str += "sigma: predict data variance para \n "
+        help_str +=("sigma: predict data variance para \n "
+                    "pred_confidence_avg: Gaussian sample average predicted confidance, array[n, d] \n "
+                    "class_predict_avg: Gaussian sample average predict class[0:c] \n "
+                    "cross_entropy_avg: average cross-entropy of pred_confidence, array[n, 1]  \n ")
         state.update({'sigma': sigs,
-                      'help_str':help_str,})
+                      'pred_confidence_avg': dist_avgs,
+                      'class_predict_avg': pred_us,
+                      'cross_entropy_avg': ent_uns,
+                      'help_str': help_str,})
     
     if args.dn =="":
         sdir = os.path.join('mat', net_dir+'_'+args.ckptn)

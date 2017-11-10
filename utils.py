@@ -35,13 +35,16 @@ def lcm(a, b):
 
 def heteroscedastic_uncertainty_loss(criterion, outputs, sig, targets, sna=50):
     loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
+    output_avg = Variable(torch.zeros(outputs.data.size()).float().cuda())
     for a in xrange(sna):  # samples mean
         # outputs2 = outputs + sig * Variable(torch.randn(outputs.data.shape).cuda())   # shape for pc only, server use size
         outputs2 = outputs + sig * Variable(torch.randn(outputs.data.size()).cuda())
+        output_avg += outputs2
         loss += criterion(outputs2, targets)
     
     loss /= sna
-    return loss
+    output_avg /= sna
+    return loss, output_avg
 
 def uncertainty_loss(criterion, outputs, sig, targets, sna=50):
     loss = Variable(torch.from_numpy(np.array([0.], dtype=np.float)).float().cuda())
