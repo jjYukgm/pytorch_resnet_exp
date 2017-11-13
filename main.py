@@ -445,8 +445,12 @@ def easydata(train=False, sca_ts=None, val=False):
         savefn = './data/'+net_dir+'_edv.'+fn
     else:
         savefn = './data/'+net_dir+'_ed.'+fn
+    
+    if args.dn =="":
+        matpath = os.path.join('mat', net_dir+'_'+args.ckptn, fn+'.mat')
+    else:
+        matpath = os.path.join('mat', net_dir+'_'+args.ckptn+'_'+args.dn, fn+'.mat')
     ## load pred
-    matpath = os.path.join('mat', net_dir+'_'+args.ckptn, fn+'.mat')
     mat = sio.loadmat(matpath)
     
     ## get score to cut
