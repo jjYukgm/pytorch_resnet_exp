@@ -109,9 +109,9 @@ class ci100dataset(Dataset):
                     entry = pickle.load(fo, encoding='latin1')
                 self.test_data = entry['data']
                 if self.coarse:
-                    self.test_labels = entry['fine_labels']
-                else:
                     self.test_labels = entry['coarse_labels']
+                else:
+                    self.test_labels = entry['fine_labels']
                 fo.close()
                 self.test_data = self.test_data.reshape((10000, 3, 32, 32))
                 self.test_data = self.test_data.transpose((0, 2, 3, 1))  # convert to HWC
