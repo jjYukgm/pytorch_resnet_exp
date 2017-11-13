@@ -463,6 +463,7 @@ def easydata(train=False, sca_ts=None, val=False):
         ratio_sort = np.sort(entropy) # small to large = easy to hard
         easy_num = int(dist.shape[0] *0.3)  # take 30% as easy data
         sca_ts = ratio_sort[int(easy_num)]  # choose ts
+        print("sca_ts: %3e" % sca_ts)
         
     easy_ind = np.where(entropy < sca_ts)
     easy_ind = np.asarray(easy_ind)
