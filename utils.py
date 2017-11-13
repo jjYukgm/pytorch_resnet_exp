@@ -88,9 +88,9 @@ class ci100dataset(Dataset):
                     entry = pickle.load(fo, encoding='latin1')
                 self.train_data = entry['data']
                 if self.coarse:
-                    self.train_labels = entry['fine_labels']
-                else:
                     self.train_labels = entry['coarse_labels']
+                else:
+                    self.train_labels = entry['fine_labels']
                 fo.close()
                 
                 self.train_data = self.train_data.reshape((50000, 3, 32, 32))
