@@ -162,9 +162,9 @@ if not args.pn =="":
     net_dir += '_p' + args.pn
 if not args.dn =="" and not args.test:
     net_dir += '_d' + args.dn
-if args.coa:
+if args.coa and not args.test:
     net_dir += 'c'
-if not args.sub ==-1 and args.reas:
+if not args.sub ==-1 and args.reas and not args.test:
     net_dir += str(args.sub)
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
