@@ -664,6 +664,8 @@ def data_save(train=False, val=False):
         sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
     else:
         sdir = os.path.join('mat', net_dir+'_'+args.ckptn+'_'+args.dn)
+    if args._coa:
+        sdir+='c'
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
     sio.savemat(sdir+'/'+fn+'.mat', state, do_compression=True)
