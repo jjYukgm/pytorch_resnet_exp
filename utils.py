@@ -176,6 +176,24 @@ def crossEntropy(dist):
 def softmaxEntropy(dist):
     return crossEntropy(softmax(dist))
     
+def rlt2npy(save_dir):
+    with open(save_dir + "/losspe.txt", "r") as f:
+        losses = f.read()
+    with open(save_dir + "/testpe.txt", "r") as f:
+        testacc = f.read()
+    losses = np.asarray([ float(i) for i in losses.split(" ")])
+    testacc = np.asarray([ float(i) for i in testacc.split(" ")])
+    dict = {'losses': losses, 
+            'testacc': testacc}
+    np.save(save_dir+'/train.npy', dict)
+    '''
+    # load
+    d2 = np.load(save_dir+'/train.npy')
+    losses = d2.item().get('losses')
+    testacc = d2.item().get('testacc')
+    '''
+    
+
 def init_params(net):
     '''Init layer parameters.'''
     for m in net.modules():

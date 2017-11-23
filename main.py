@@ -28,6 +28,8 @@ import zipfile
 import numpy as np
 import time
 import shutil
+# for save loss
+from utils import rlt2npy
 # for easydata
 from utils import softmaxEntropy
 from utils import gcd, lcm
@@ -352,6 +354,11 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        
+    # save loss
+    with open(net_dir + "/losspe.txt", "a") as f:
+        f.write(str(train_loss)+" ")
+
 
 def test(epoch):
     global best_acc
@@ -404,7 +411,10 @@ def test(epoch):
             'epoch': epoch+1,
         }
         torch.save(state, checkpointdir+"/e%03d"%(epoch+1)+'_ckpt.t7')
-
+    
+    # save testing accu
+    with open(net_dir + "/testpe.txt", "a") as f:
+        f.write(str(acc)+" ")
 
 def pred2lbl(train=False):
     if train:
@@ -716,6 +726,8 @@ else:
     for epoch in range(start_epoch, start_epoch+args.epoch):
         train(epoch)
         test(epoch)
+        
+    rlt2npy(net_dir)
 
 if args.p2l:
     pred2lbl()
