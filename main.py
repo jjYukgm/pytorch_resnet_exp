@@ -14,7 +14,7 @@ import torchvision.transforms as transforms
 
 import os
 import argparse
-import argcomplete, pprint
+import argcomplete
 
 # from models import *
 from models import resnet as rn
@@ -39,6 +39,9 @@ from utils import heteroscedastic_uncertainty_loss
 import types
 # for coarse data
 from utils import ci100dataset
+# for noise label
+from random import randint
+from random import random
 
 '''
 # 2lbl
@@ -128,6 +131,7 @@ parser.add_argument('--dn', default="", type=str, help='data name or ci100').com
 parser.add_argument('--pn', default="", type=str, help='pretrain name').completer = ckpt_nets
 parser.add_argument('--checkpointdir', default="./checkpoint", type=str, help='checkpoint dir')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--nr', default=0., type=float, help='noise label rate')
 parser.add_argument('--epoch', '-e', default=200, type=int, help='next training epoch')
 parser.add_argument('--sna', '-a', default=50, type=int, help='sample num for Aleatoric Uncertainty')
 parser.add_argument('--sub', default=-1, type=int, help='sub-set of coarse lbl ind in cifar100, int [0-19]')
@@ -170,6 +174,8 @@ if not args.sub ==-1 and args.reas and not args.test:
     net_dir += str(args.sub)
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
+if not args.nr == 0.:
+    net_dir += "_nr%.0E"%(args.nr)
 
 print("net: "+net_dir)
 checkpointdir = args.checkpointdir+'/'+net_dir
@@ -202,14 +208,26 @@ else:
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
-
+if args.nr != 0.:
+    if args.dn =="ci100":
+        high = 100
+    else:
+        high = 10
+    target_transform = lambda t: randint(0, high-1) if args.nr > random() else t
+    '''
+    target_transform = transforms.Compose([
+            transforms.Lambda(lambda t: rand_tar(t)),
+        ])
+    '''
+else:
+    target_transform = None
 
 
 if args.dn =="":
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train, target_transform=target_transform)
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
 elif args.dn =="ci100":
-    trainset = ci100dataset(root='./data', transform=transform_train, train=True, coarse=args.coa, reassign=args.reas, sub=args.sub)
+    trainset = ci100dataset(root='./data', transform=transform_train, target_transform=target_transform, train=True, coarse=args.coa, reassign=args.reas, sub=args.sub)
     testset = ci100dataset(root='./data', transform=transform_test, train=False, coarse=args.coa, reassign=args.reas, sub=args.sub)
 else:
     trainset = torch.load('./data/'+args.dn+'.train')
@@ -303,6 +321,8 @@ else:
 # check net is uc-net
 if args.uc:
     args.uc = hasattr(net, 'sig')
+elif hasattr(net, 'sig'):
+    print("net has sig, but no \"--uc\"")
     
 if use_cuda:
     net.cuda()
@@ -356,7 +376,8 @@ def train(epoch):
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
         
     # save loss
-    with open(net_dir + "/losspe.txt", "a") as f:
+    lossfn = os.path.join(args.checkpointdir , net_dir, "losspe.txt")
+    with open(lossfn, "w+") as f:
         f.write(str(train_loss)+" ")
 
 
@@ -413,7 +434,8 @@ def test(epoch):
         torch.save(state, checkpointdir+"/e%03d"%(epoch+1)+'_ckpt.t7')
     
     # save testing accu
-    with open(net_dir + "/testpe.txt", "a") as f:
+    teaccfn = os.path.join(args.checkpointdir , net_dir, "testpe.txt")
+    with open(teaccfn, "w+") as f:
         f.write(str(acc)+" ")
 
 def pred2lbl(train=False):
