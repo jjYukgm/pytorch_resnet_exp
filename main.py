@@ -30,6 +30,7 @@ import time
 import shutil
 # for save loss
 from utils import rlt2npy
+from utils import checkRecExist
 # for easydata
 from utils import softmaxEntropy
 from utils import gcd, lcm
@@ -244,8 +245,8 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 # Model
 if args.r3:
     print('==> Resuming from checkpoint to easy new..')
-    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+    assert os.path.isdir(checkpointdir), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load(checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     
     if args.ft:
@@ -254,11 +255,11 @@ if args.r3:
 elif args.r2:
     # Load checkpoint.
     print('==> Resuming from checkpoint to 2 lbl..')
-    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
+    assert os.path.isdir(checkpointdir), 'Error: no checkpoint directory found!'
     if args.pn=="":
-        checkpoint = torch.load(args.checkpointdir+'/'+args.dn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(checkpointdir+'/'+args.dn+'/'+args.ckptn+'_ckpt.t7')
     else:
-        checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     start_epoch = checkpoint['epoch']
     # replace para
@@ -271,12 +272,12 @@ elif args.r2:
 elif args.resume or args.test or args.pn!="":
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
+    assert os.path.isdir(checkpointdir), 'Error: no checkpoint directory found!'
     if args.pn=="":
-        checkpoint = torch.load(args.checkpointdir+'/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(checkpointdir+'/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
         best_acc = checkpoint['acc']
     else:
-        checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     if not args.ez:
         start_epoch = checkpoint['epoch']
@@ -376,9 +377,9 @@ def train(epoch):
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
         
     # save loss
-    lossfn = os.path.join(args.checkpointdir , net_dir, "losspe.txt")
-    with open(lossfn, "w+") as f:
-        f.write(str(train_loss)+" ")
+    lossfn = os.path.join(checkpointdir, "losspe.txt")
+    with open(lossfn, "a") as f:
+        f.write(str(train_loss/(batch_idx+1))+" ")
 
 
 def test(epoch):
@@ -434,8 +435,8 @@ def test(epoch):
         torch.save(state, checkpointdir+"/e%03d"%(epoch+1)+'_ckpt.t7')
     
     # save testing accu
-    teaccfn = os.path.join(args.checkpointdir , net_dir, "testpe.txt")
-    with open(teaccfn, "w+") as f:
+    teaccfn = os.path.join(checkpointdir, "testpe.txt")
+    with open(teaccfn, "a") as f:
         f.write(str(acc)+" ")
 
 def pred2lbl(train=False):
@@ -745,11 +746,12 @@ elif args.test:
     get_zip()
     print("load epoch: "+ str(start_epoch))
 else:
+    # checkRecExist(checkpointdir)
     for epoch in range(start_epoch, start_epoch+args.epoch):
         train(epoch)
         test(epoch)
         
-    rlt2npy(net_dir)
+    rlt2npy(checkpointdir)
 
 if args.p2l:
     pred2lbl()

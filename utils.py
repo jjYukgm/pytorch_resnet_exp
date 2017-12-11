@@ -22,6 +22,8 @@ if sys.version_info[0] == 2:
     import cPickle as pickle
 else:
     import pickle
+# for save losses
+import os.path
 
 def gcd(a,b):
     """Compute the greatest common divisor of a and b"""
@@ -181,8 +183,8 @@ def rlt2npy(save_dir):
         losses = f.read()
     with open(save_dir + "/testpe.txt", "r") as f:
         testacc = f.read()
-    losses = np.asarray([ float(i) for i in losses.split(" ")])
-    testacc = np.asarray([ float(i) for i in testacc.split(" ")])
+    losses = np.asarray([ float(i) for i in losses.split(" ") if i is not ''])
+    testacc = np.asarray([ float(i) for i in testacc.split(" ") if i is not ''])
     dict = {'losses': losses, 
             'testacc': testacc}
     np.save(save_dir+'/train.npy', dict)
@@ -192,7 +194,15 @@ def rlt2npy(save_dir):
     losses = d2.item().get('losses')
     testacc = d2.item().get('testacc')
     '''
-    
+def checkRecExist(save_dir):
+    checkFileExist(save_dir + "/losspe.txt")
+    checkFileExist(save_dir + "/testpe.txt")
+
+def checkFileExist(fname):
+    if not os.path.isfile(fname):
+        f = open(fname, "wt")
+        f.close()
+        
 
 def init_params(net):
     '''Init layer parameters.'''
