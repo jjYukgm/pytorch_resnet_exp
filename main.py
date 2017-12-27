@@ -176,7 +176,7 @@ if not args.sub ==-1 and args.reas and not args.test:
 if not args.lr == 0.1:
     net_dir += "_lr%.0E"%(args.lr)
 if not args.nr == 0.:
-    net_dir += "_nr%.0E"%(args.nr)
+    net_dir += "_nr%.1E"%(args.nr)
 
 print("net: "+net_dir)
 checkpointdir = args.checkpointdir+'/'+net_dir
@@ -246,7 +246,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 if args.r3:
     print('==> Resuming from checkpoint to easy new..')
     assert os.path.isdir(checkpointdir), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load(checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+    checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     
     if args.ft:
@@ -255,11 +255,11 @@ if args.r3:
 elif args.r2:
     # Load checkpoint.
     print('==> Resuming from checkpoint to 2 lbl..')
-    assert os.path.isdir(checkpointdir), 'Error: no checkpoint directory found!'
+    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
     if args.pn=="":
-        checkpoint = torch.load(checkpointdir+'/'+args.dn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+args.dn+'/'+args.ckptn+'_ckpt.t7')
     else:
-        checkpoint = torch.load(checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     start_epoch = checkpoint['epoch']
     # replace para
@@ -272,12 +272,12 @@ elif args.r2:
 elif args.resume or args.test or args.pn!="":
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    assert os.path.isdir(checkpointdir), 'Error: no checkpoint directory found!'
+    assert os.path.isdir(args.checkpointdir), 'Error: no checkpoint directory found!'
     if args.pn=="":
-        checkpoint = torch.load(checkpointdir+'/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+net_dir+'/'+args.ckptn+'_ckpt.t7')
         best_acc = checkpoint['acc']
     else:
-        checkpoint = torch.load(checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
+        checkpoint = torch.load(args.checkpointdir+'/'+args.pn+'/'+args.ckptn+'_ckpt.t7')
     net = checkpoint['net']
     if not args.ez:
         start_epoch = checkpoint['epoch']
@@ -697,7 +697,7 @@ def data_save(train=False, val=False):
         sdir = os.path.join('mat', net_dir+'_'+args.ckptn)
     else:
         sdir = os.path.join('mat', net_dir+'_'+args.ckptn+'_'+args.dn)
-    if args._coa:
+    if args.coa:
         sdir+='c'
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
