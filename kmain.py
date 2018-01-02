@@ -285,7 +285,7 @@ elif args.resume or args.test or args.pn!="":
     if not args.ez:
         start_epoch = checkpoint['epoch']
     
-    num_cls = max(trainset.train_labels) +1
+    num_cls = len(np.unique(trainset.train_labels))
     if (not args.test) and net.linear.out_features != num_cls:
         net.genNewLin(num_cls)
     
@@ -299,7 +299,7 @@ elif args.resume or args.test or args.pn!="":
         print("set net.setdrop")
         net.setdrop(args.uc1d, args.uc2d)
     if args.kmean:
-        def lastfeature(self, x):
+        def lastFeature(self, x):
             out = F.relu(self.bn1(self.conv1(x)))
             if self.num_layers >0:
                 out = self.layer1(out)
@@ -312,8 +312,7 @@ elif args.resume or args.test or args.pn!="":
             out = F.avg_pool2d(out, 4)
             out = out.view(out.size(0), -1)
             return out
-        net.lastfeature = types.MethodType(lastfeature, net)
-
+        net.lastFeature = types.MethodType(lastFeature, net)
     if args.ft:
         net.finetuneLast()
 
@@ -345,7 +344,7 @@ elif hasattr(net, 'sig'):
     
 if use_cuda:
     net.cuda()
-    net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
+    # net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
 
@@ -744,7 +743,7 @@ def km_cluster_data_save(train=False, val=False):
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         last_time = time.time()
         begin_time = last_time
-        outputs = net(inputs)
+        outputs = net.lastFeature(inputs)
 
 
         last_time = time.time()

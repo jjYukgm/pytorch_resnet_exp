@@ -22,12 +22,14 @@ from sklearn.metrics import average_precision_score
 from utils import softmaxEntropy
 
 # clustering kmeans
+from sklearn import metrics
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import scale
+from time import time
 '''
 python analysis.py -n r_37_2_lr1e-1_e200,r_37_2_lr1e-1_best,r_37_2_lr1e-2_e200,r_37_2_lr1e-2_best --prc 
-python analysis.py -n r_37_nr1.0E-1_best --km > km_ana_log.txt
+python2 analysis.py -n r_37_nr1.0E-01_best --km > km_ana_log.txt
 
 '''
 
@@ -163,7 +165,7 @@ def remove_file():
     else:
         shutil.rmtree(os.path.join('plot', args.net), ignore_errors=True)
 
-def bench_k_means(estimator, name, data, labels):
+def bench_k_means(estimator, name, data, labels, sample_size=2000):
     t0 = time()
     estimator.fit(data)
     print('%-9s\t%.2fs\t%i\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
@@ -185,13 +187,16 @@ def cluster(net,train=False, val=False):
     mat = sio.loadmat(os.path.join('cluster', net, fn+'.mat'))
     x_dist = np.array(mat['pred_confidence'])
     y_dist = np.array(mat['ground_truth'])
+    # pdb.set_trace()
     x_dist = scale(x_dist)
+    y_dist = y_dist.squeeze()
     n_samples, x_dim = x_dist.shape
-    y_dim = y_dist.shape[-1]
-    print("y_dim: %d, \t n_samples %d, \t x_dim %d"
+    y_dim = len(np.unique(y_dist))
+    print("y_dim: %d, \t n_samples: %d, \t x_dim: %d"
       % (y_dim, n_samples, x_dim))
     ## kmeans
-    print('init\t\ttime\tinertia\thomo\tcompl\tv-meas\tARI\tAMI\tsilhouette')
+    sample_size = 2000  # 2* data in one class
+    print('init\t\t\t\ttime\tinertia\t\thomo\tcompl\tv-meas\tARI\tAMI\tsilhouette')
     bench_k_means(KMeans(init='k-means++', n_clusters=y_dim, n_init=10),
               name=net+"_k-means++", data=x_dist, labels=y_dist)
 
@@ -237,12 +242,16 @@ def cluster(net,train=False, val=False):
                 color='w', zorder=10)
     plt.title('K-means clustering on the ' + net + ' result (PCA-reduced data)\n'
               'Centroids are marked with white cross')
+    fig = plt.gcf()
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
     plt.xticks(())
     plt.yticks(())
     # plt.show()
-    plt.savefig(os.path.join(sdir,"plot_"+fn+"_prc.png"), bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=fig.dpi)
+    sdir = os.path.join('plot',net)
+    if not os.path.isdir(sdir):
+        os.makedirs(sdir)
+    plt.savefig(os.path.join(sdir,"plot_"+fn+"_cluster.png"), bbox_inches='tight', dpi=fig.dpi)
     plt.close(fig)
 
 plt.ioff() 
