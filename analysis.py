@@ -20,8 +20,15 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import average_precision_score
 
 from utils import softmaxEntropy
+
+# clustering kmeans
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import scale
 '''
 python analysis.py -n r_37_2_lr1e-1_e200,r_37_2_lr1e-1_best,r_37_2_lr1e-2_e200,r_37_2_lr1e-2_best --prc 
+python analysis.py -n r_37_nr1.0E-1_best --km > km_ana_log.txt
+
 '''
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 analysis')
@@ -31,6 +38,7 @@ parser.add_argument('--prc', action='store_true', help='prec recall curve')
 parser.add_argument('--eu', action='store_true', help='Aleatoric uncertainty-entropy plot')
 parser.add_argument('--gr', action='store_true', help='plot group')
 parser.add_argument('--val', '-v', action='store_true', help='There are val data in training')
+parser.add_argument('--km', '-k', action='store_true', help='kmean clustering')
 args = parser.parse_args()
 
 # for analysis
@@ -155,6 +163,88 @@ def remove_file():
     else:
         shutil.rmtree(os.path.join('plot', args.net), ignore_errors=True)
 
+def bench_k_means(estimator, name, data, labels):
+    t0 = time()
+    estimator.fit(data)
+    print('%-9s\t%.2fs\t%i\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
+          % (name, (time() - t0), estimator.inertia_,
+             metrics.homogeneity_score(labels, estimator.labels_),
+             metrics.completeness_score(labels, estimator.labels_),
+             metrics.v_measure_score(labels, estimator.labels_),
+             metrics.adjusted_rand_score(labels, estimator.labels_),
+             metrics.adjusted_mutual_info_score(labels,  estimator.labels_),
+             metrics.silhouette_score(data, estimator.labels_,
+                                      metric='euclidean',
+                                      sample_size=sample_size)))
+    
+def cluster(net,train=False, val=False):
+    ## load data
+    fn = getMatExt(train=train, val=val)
+    # get data & analysis ap, recall
+    print(net+'_'+fn+": (k-means clustering)")
+    mat = sio.loadmat(os.path.join('cluster', net, fn+'.mat'))
+    x_dist = np.array(mat['pred_confidence'])
+    y_dist = np.array(mat['ground_truth'])
+    x_dist = scale(x_dist)
+    n_samples, x_dim = x_dist.shape
+    y_dim = y_dist.shape[-1]
+    print("y_dim: %d, \t n_samples %d, \t x_dim %d"
+      % (y_dim, n_samples, x_dim))
+    ## kmeans
+    print('init\t\ttime\tinertia\thomo\tcompl\tv-meas\tARI\tAMI\tsilhouette')
+    bench_k_means(KMeans(init='k-means++', n_clusters=y_dim, n_init=10),
+              name=net+"_k-means++", data=x_dist, labels=y_dist)
+
+    bench_k_means(KMeans(init='random', n_clusters=y_dim, n_init=10),
+                  name=net+"_random", data=x_dist, labels=y_dist)
+
+    # in this case the seeding of the centers is deterministic, hence we run the
+    # kmeans algorithm only once with n_init=1
+    pca = PCA(n_components=y_dim).fit(x_dist)
+    bench_k_means(KMeans(init=pca.components_, n_clusters=y_dim, n_init=1),
+                  name=net+"_PCA-based",
+                  data=x_dist, labels=y_dist)
+    ## visulize
+    reduced_data = PCA(n_components=2).fit_transform(x_dist)
+    kmeans = KMeans(init='k-means++', n_clusters=y_dim, n_init=10)
+    kmeans.fit(reduced_data)
+
+    # Step size of the mesh. Decrease to increase the quality of the VQ.
+    h = .02     # point in the mesh [x_min, x_max]x[y_min, y_max].
+
+    # Plot the decision boundary. For that, we will assign a color to each
+    x_min, x_max = reduced_data[:, 0].min() - 1, reduced_data[:, 0].max() + 1
+    y_min, y_max = reduced_data[:, 1].min() - 1, reduced_data[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+
+    # Obtain labels for each point in mesh. Use last trained model.
+    Z = kmeans.predict(np.c_[xx.ravel(), yy.ravel()])
+
+    # Put the result into a color plot
+    Z = Z.reshape(xx.shape)
+    plt.figure(1)
+    plt.clf()
+    plt.imshow(Z, interpolation='nearest',
+               extent=(xx.min(), xx.max(), yy.min(), yy.max()),
+               cmap=plt.cm.Paired,
+               aspect='auto', origin='lower')
+
+    plt.plot(reduced_data[:, 0], reduced_data[:, 1], 'k.', markersize=2)
+    # Plot the centroids as a white X
+    centroids = kmeans.cluster_centers_
+    plt.scatter(centroids[:, 0], centroids[:, 1],
+                marker='x', s=169, linewidths=3,
+                color='w', zorder=10)
+    plt.title('K-means clustering on the ' + net + ' result (PCA-reduced data)\n'
+              'Centroids are marked with white cross')
+    plt.xlim(x_min, x_max)
+    plt.ylim(y_min, y_max)
+    plt.xticks(())
+    plt.yticks(())
+    # plt.show()
+    plt.savefig(os.path.join(sdir,"plot_"+fn+"_prc.png"), bbox_extra_artists=(lgd,), bbox_inches='tight', dpi=fig.dpi)
+    plt.close(fig)
+
 plt.ioff() 
 
 # confirm dir exist
@@ -169,10 +259,12 @@ if args.prc:
     plot_func = pr_curve
 elif args.eu:
     plot_func = entropyUncertainty
+elif args.km:
+    plot_func = cluster
     
     
 plots(args.net, plot_func)
-plots(args.net, plot_func, train=True)
+# plots(args.net, plot_func, train=True)
 if args.val:
     plots(args.net, plot_func, train=True, val=True)
     
