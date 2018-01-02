@@ -8,3 +8,5 @@ plot/
 *.swp
 data/cifar-10*/*
 *.ipynb*
+cluster/
+script/
