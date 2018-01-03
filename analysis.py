@@ -27,6 +27,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import scale
 from time import time
+from sklearn.manifold import TSNE
 '''
 python analysis.py -n r_37_2_lr1e-1_e200,r_37_2_lr1e-1_best,r_37_2_lr1e-2_e200,r_37_2_lr1e-2_best --prc 
 python2 analysis.py -n r_37_nr1.0E-01_best --km > km_ana_log.txt
@@ -165,20 +166,43 @@ def remove_file():
     else:
         shutil.rmtree(os.path.join('plot', args.net), ignore_errors=True)
 
-def bench_k_means(estimator, name, data, labels, sample_size=2000):
-    t0 = time()
-    estimator.fit(data)
-    print('%-9s\t%.2fs\t%i\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
-          % (name, (time() - t0), estimator.inertia_,
-             metrics.homogeneity_score(labels, estimator.labels_),
-             metrics.completeness_score(labels, estimator.labels_),
-             metrics.v_measure_score(labels, estimator.labels_),
-             metrics.adjusted_rand_score(labels, estimator.labels_),
-             metrics.adjusted_mutual_info_score(labels,  estimator.labels_),
-             metrics.silhouette_score(data, estimator.labels_,
+def bench_k_means(estimator, name, data, labels, sample_size=2000,iter=50):
+    time_ = 0.
+    inertias = 0.
+    homo = 0.
+    compl = 0.
+    v_meas = 0.
+    ari = 0.
+    ami = 0.
+    nmi = 0.
+    silh = 0.
+    for i in range(iter):
+        t0 = time()
+        result = estimator.fit(data)
+        time_ += time() - t0)
+        inertias += result.inertia_
+        homo += metrics.homogeneity_score(labels, result.labels_)
+        compl += metrics.completeness_score(labels, result.labels_)
+        v_meas += metrics.v_measure_score(labels, result.labels_)
+        ari += metrics.adjusted_rand_score(labels, result.labels_)
+        ami += metrics.adjusted_mutual_info_score(labels,  result.labels_)
+        nmi += metrics.normalized_mutual_info_score(labels,  result.labels_)
+        silh += metrics.silhouette_score(data, result.labels_,
                                       metric='euclidean',
-                                      sample_size=sample_size)))
+                                      sample_size=sample_size)
     
+    time_ /= iter
+    inertias /= iter
+    homo /= iter 
+    compl /= iter 
+    v_meas /= iter 
+    ari /= iter 
+    ami /= iter 
+    nmi /= iter 
+    silh /= iter
+    print('%-9s\t%.2fs\t%i\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
+            % (name, time_, inertias, homo, compl, v_meas, ari, ami, nmi, silh))
+
 def cluster(net,train=False, val=False):
     ## load data
     fn = getMatExt(train=train, val=val)
@@ -196,20 +220,23 @@ def cluster(net,train=False, val=False):
       % (y_dim, n_samples, x_dim))
     ## kmeans
     sample_size = 2000  # 2* data in one class
-    print('init\t\t\t\ttime\tinertia\t\thomo\tcompl\tv-meas\tARI\tAMI\tsilhouette')
+    print('init\t\t\t\ttime\tinertia\t\thomo\tcompl\tv-meas\tARI\tAMI\tNMI\tsilhouette')
     bench_k_means(KMeans(init='k-means++', n_clusters=y_dim, n_init=10),
-              name=net+"_k-means++", data=x_dist, labels=y_dist)
+              name="k-means++", data=x_dist, labels=y_dist)
 
     bench_k_means(KMeans(init='random', n_clusters=y_dim, n_init=10),
-                  name=net+"_random", data=x_dist, labels=y_dist)
+                  name="random", data=x_dist, labels=y_dist)
 
     # in this case the seeding of the centers is deterministic, hence we run the
     # kmeans algorithm only once with n_init=1
     pca = PCA(n_components=y_dim).fit(x_dist)
     bench_k_means(KMeans(init=pca.components_, n_clusters=y_dim, n_init=1),
-                  name=net+"_PCA-based",
+                  name="PCA-based",
                   data=x_dist, labels=y_dist)
     ## visulize
+    reduced_data = TSNE(n_components=2).fit_transform(x_dist)
+    '''
+    # old plot
     reduced_data = PCA(n_components=2).fit_transform(x_dist)
     kmeans = KMeans(init='k-means++', n_clusters=y_dim, n_init=10)
     kmeans.fit(reduced_data)
@@ -240,8 +267,13 @@ def cluster(net,train=False, val=False):
     plt.scatter(centroids[:, 0], centroids[:, 1],
                 marker='x', s=169, linewidths=3,
                 color='w', zorder=10)
-    plt.title('K-means clustering on the ' + net + ' result (PCA-reduced data)\n'
+    plt.title('K-means clustering on the ' + net + ' result (TSNE-reduced data)\n'
               'Centroids are marked with white cross')
+    '''
+    plt.scatter(Reduced_data[:, 0], Reduced_data[:, 1],c=y_dist, marker="x")
+    x_min, x_max = reduced_data[:, 0].min() - 1, reduced_data[:, 0].max() + 1
+    y_min, y_max = reduced_data[:, 1].min() - 1, reduced_data[:, 1].max() + 1
+
     fig = plt.gcf()
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
@@ -251,7 +283,7 @@ def cluster(net,train=False, val=False):
     sdir = os.path.join('plot',net)
     if not os.path.isdir(sdir):
         os.makedirs(sdir)
-    plt.savefig(os.path.join(sdir,"plot_"+fn+"_cluster.png"), bbox_inches='tight', dpi=fig.dpi)
+    plt.savefig(os.path.join(sdir,"plot_"+fn+"_tsne.png"), bbox_inches='tight', dpi=fig.dpi)
     plt.close(fig)
 
 plt.ioff() 
