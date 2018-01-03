@@ -14,7 +14,6 @@ import torchvision.transforms as transforms
 
 import os
 import argparse
-import argcomplete
 
 # from models import *
 from models import resnet as rn
@@ -154,7 +153,7 @@ parser.add_argument('--ft', action='store_true', help='finetune only last')
 parser.add_argument('--rm', action='store_true', help='remove net')
 parser.add_argument('--coa', action='store_true', help='cifar100 to coarse lbl')
 parser.add_argument('--reas', action='store_true', help='cifar100 to reassign fine lbl')
-argcomplete.autocomplete(parser)
+# argcomplete.autocomplete(parser)
 args = parser.parse_args()
 
 # save dir
