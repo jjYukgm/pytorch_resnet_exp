@@ -179,7 +179,7 @@ def bench_k_means(estimator, name, data, labels, sample_size=2000,iter=50):
     for i in range(iter):
         t0 = time()
         result = estimator.fit(data)
-        time_ += time() - t0)
+        time_ += time() - t0
         inertias += result.inertia_
         homo += metrics.homogeneity_score(labels, result.labels_)
         compl += metrics.completeness_score(labels, result.labels_)
@@ -270,7 +270,7 @@ def cluster(net,train=False, val=False):
     plt.title('K-means clustering on the ' + net + ' result (TSNE-reduced data)\n'
               'Centroids are marked with white cross')
     '''
-    plt.scatter(Reduced_data[:, 0], Reduced_data[:, 1],c=y_dist, marker="x")
+    plt.scatter(reduced_data[:, 0], reduced_data[:, 1],c=y_dist, marker="x")
     x_min, x_max = reduced_data[:, 0].min() - 1, reduced_data[:, 0].max() + 1
     y_min, y_max = reduced_data[:, 1].min() - 1, reduced_data[:, 1].max() + 1
 
